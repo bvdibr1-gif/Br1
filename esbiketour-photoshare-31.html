@@ -1,0 +1,2772 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EsBike PhotoShare</title>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, set, update, remove, off }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqwMRjaE9EOgGq1ieCii3NlV81xE3YZ7k",
+      authDomain: "esbike-photoshare.firebaseapp.com",
+      databaseURL: "https://esbike-photoshare-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "esbike-photoshare",
+      storageBucket: "esbike-photoshare.firebasestorage.app",
+      messagingSenderId: "957641271705",
+      appId: "1:957641271705:web:735949dee6ffa6b7b08b08"
+    };
+
+    const fbApp = initializeApp(firebaseConfig);
+    const db    = getDatabase(fbApp);
+
+    // Esponi globalmente per il resto dell'app (non-module)
+    window._fb = { db, ref, push, onValue, set, update, remove, off };
+    window._fbReady = true;
+    document.dispatchEvent(new Event('firebase-ready'));
+  </script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background:#fff; color:#111; padding:0; }
+header { background:#111; color:#fff; padding:12px 20px; display:flex; align-items:center; gap:12px; }
+header img { height:32px; }
+header span { color:#8cc63f; font-weight:700; font-size:1.1rem; }
+.nav-tabs { display:flex; gap:4px; padding:8px; background:#f5f5f5; border-bottom:1px solid #ddd; }
+.nav-tab { padding:8px 14px; border:1px solid #ccc; border-radius:6px; background:#fff; cursor:pointer; font-size:0.85rem; }
+.nav-tab.active { background:#111; color:#fff; border-color:#111; }
+/* viste gestite via style inline */
+.join-screen { padding: 20px; max-width: 500px; margin: 0 auto; }
+.join-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 24px; min-height: 200px; }
+input[type=text], input[type=password], input[type=tel], select, textarea {
+  width:100%; padding:10px; border:1px solid #ccc; border-radius:6px;
+  font-size:1rem; margin-bottom:12px; font-family:inherit;
+}
+label { display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px; color:#555; }
+button, .btn { padding:10px 20px; border:1px solid #111; border-radius:6px; 
+  background:#111; color:#fff; cursor:pointer; font-size:0.9rem; font-family:inherit; }
+.btn-outline { background:#fff; color:#111; }
+.btn-success { background:#2a8a5a; border-color:#2a8a5a; }
+.btn-gold { background:#f5a623; border-color:#f5a623; }
+.card { background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:16px; }
+.photo-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.photo-card img { width:100%; border-radius:6px; }
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:#333; color:#fff; padding:10px 20px; border-radius:20px; z-index:9999; font-size:0.9rem; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; }
+.modal-overlay.active { display:flex; align-items:center; justify-content:center; }
+.modal-box { background:#fff; border-radius:8px; padding:24px; max-width:90vw; max-height:80vh; overflow-y:auto; }
+h2 { font-size:1.4rem; margin-bottom:12px; }
+h3 { font-size:1.1rem; margin-bottom:8px; }
+.badge-active { background:#e8f5e9; color:#2a8a5a; padding:4px 10px; border-radius:20px; font-size:0.8rem; }
+.admin-tabs { display:flex; gap:4px; margin-bottom:16px; flex-wrap:wrap; }
+.admin-tab { padding:8px 14px; border:1px solid #ccc; border-radius:6px; background:#fff; cursor:pointer; }
+.admin-tab.active { background:#111; color:#fff; }
+.admin-panel { display:none; }
+.admin-panel.active { display:block; }
+.guide-badge { display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:12px; }
+.lang-switcher { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.lang-btn { padding:6px 12px; border:1px solid #ccc; border-radius:20px; cursor:pointer; font-size:0.85rem; background:#fff; }
+.lang-btn.active { background:#111; color:#fff; border-color:#111; }
+.gdpr-box { display:flex; align-items:flex-start; gap:8px; margin-bottom:16px; font-size:0.85rem; color:#555; }
+.gdpr-box input { width:auto; margin:0; }
+.upload-zone { border:2px dashed #ccc; border-radius:8px; padding:24px; text-align:center; cursor:pointer; margin-bottom:16px; }
+.multi-select-bar { background:#f0f0f0; padding:10px; border-radius:8px; margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+#photo-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:16px; }
+.photo-card { border:1px solid #ddd; border-radius:8px; overflow:hidden; position:relative; }
+.photo-img-wrap { aspect-ratio:1; overflow:hidden; }
+.photo-img-wrap img { width:100%; height:100%; object-fit:cover; }
+.photo-body { padding:8px; font-size:0.8rem; }
+.select-blog-toggle { position:absolute; top:6px; right:6px; background:#fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid #ccc; }
+.photo-select-cb { position:absolute; top:6px; left:6px; width:20px; height:20px; }
+.reactions { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+.reaction-btn { padding:3px 8px; border:1px solid #ddd; border-radius:20px; cursor:pointer; font-size:0.8rem; background:#fff; }
+.waiver-box { background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:16px; margin-bottom:12px; }
+.party-header { display:grid; grid-template-columns:1fr 1fr 36px; gap:8px; font-size:0.75rem; font-weight:600; color:#555; margin-bottom:4px; }
+.party-member { display:grid; grid-template-columns:1fr 1fr 36px; gap:8px; margin-bottom:8px; }
+.party-member input { margin-bottom:0; }
+.add-member-btn { background:#f0f0f0; border:1px dashed #ccc; color:#555; width:100%; }
+.summary-card { background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:16px; margin-bottom:16px; }
+.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.summary-item { font-size:0.85rem; }
+.session-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #ddd; }
+.guide-favorites-section { margin-top:16px; padding-top:16px; border-top:1px solid #ddd; }
+.qr-box { text-align:center; padding:16px; border:1px solid #ddd; border-radius:8px; margin:12px 0; }
+.lang-check-item { display:flex; align-items:center; gap:6px; font-size:0.9rem; }
+.member-count { font-size:0.85rem; color:#555; }
+.btn-whatsapp { background:#25D366; border-color:#25D366; }
+input[type=checkbox], input[type=radio] { width:auto; margin:0; }
+.photo-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.4); display:none; align-items:flex-end; padding:8px; gap:4px; }
+.photo-card:hover .photo-overlay { display:flex; }
+.comment-list { margin-top:8px; }
+.comment-item { display:flex; gap:8px; margin-bottom:6px; }
+.comment-bubble { background:#f0f0f0; padding:6px 10px; border-radius:6px; font-size:0.8rem; flex:1; }
+.photo-comments { margin-top:8px; }
+.comment-input-row { display:flex; gap:6px; }
+.comment-input-row input { margin-bottom:0; flex:1; }
+.lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; align-items:center; justify-content:center; }
+.lightbox.active { display:flex; }
+.lightbox img { max-width:90vw; max-height:90vh; border-radius:4px; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.guide-avatar { width:40px; height:40px; border-radius:50%; background:#8cc63f; display:flex; align-items:center; justify-content:center; font-size:1.2rem; overflow:hidden; }
+.guide-avatar img { width:100%; height:100%; object-fit:cover; }
+.hero-icon { font-size:2rem; margin-bottom:8px; }
+
+  #view-join { color: #000 !important; background: #fff !important; }
+  #view-join * { color: #000 !important; }
+  #view-join .join-card { background: #fff !important; }
+  #view-join input, #view-join select, #view-join textarea { background: #fff !important; color: #000 !important; }
+  #view-join button { color: #fff !important; }
+</style>
+</head>
+<body>
+<header>
+  <img src="https://esbiketour.com/wp-content/uploads/2023/09/esbike-ebike-otur-rome.png" alt="EsBike" onerror="this.style.display='none'">
+  <span>PHOTOSHARE</span>
+</header>
+<div id="nav-tabs" class="nav-tabs">
+  <button class="nav-tab" id="nav-login" onclick="showView('login')">🔐 Accedi</button>
+  <button class="nav-tab" id="nav-admin" onclick="showView('admin')" style="display:none">🔧 Admin</button>
+  <button class="nav-tab" id="nav-guide" onclick="showView('guide')" style="display:none">🧭 Guida</button>
+  <button class="nav-tab" id="nav-join" onclick="showView('join')" style="display:none">📱 Partecipa</button>
+  <button class="nav-tab" id="nav-group" onclick="showView('group')" style="display:none">🖼️ Sessione</button>
+</div>
+<div id="view-join" class="view" hidden style="display:none;background:#fff;color:#000;min-height:50vh;padding:20px;">
+  <div class="join-screen">
+    <div class="join-card">
+
+      <!-- LANGUAGE SWITCHER — sempre in cima -->
+      <div class="lang-switcher" id="join-lang-switcher">
+        <!-- popolato da JS in base alle lingue della sessione -->
+      </div>
+
+      <div class="hero-icon">📸</div>
+      <h2 id="t-join-title">Unisciti alla Sessione</h2>
+
+      <!-- FRASE STANDARD -->
+      <p id="t-welcome-msg" style="font-size:1rem; font-weight:500; color:#111111; background:#f5f5f5; border-radius:10px; padding:12px 16px; margin-bottom:16px; border-left:3px solid #8cc63f; line-height:1.6;">
+        Benvenuto! Carica e condividi le tue foto con il gruppo.
+      </p>
+
+      <!-- CONTATTO MANAGER -->
+      <div id="manager-contact-block" style="display:none; margin-bottom:16px; padding:12px 16px; background:#eeeeee; border-radius:10px; border:1px solid #dddddd; font-size:0.82rem; color:#111111; align-items:center; gap:10px;">
+        <span style="font-size:1.2rem;">📧</span>
+        <div>
+          <div id="t-contact-label" style="font-weight:600; margin-bottom:1px;">Hai bisogno di assistenza?</div>
+          <a id="manager-email-link" href="#" style="color:#8cc63f; font-weight:500;"></a>
+        </div>
+      </div>
+
+      <label id="t-label-name">Il tuo nome</label>
+      <input type="text" id="join-username" placeholder="es. Marco Bianchi" style="margin-bottom:12px;">
+
+      <label id="t-label-code">Codice Sessione</label>
+      <input type="text" id="join-code" placeholder="es. SESSION-XKJT82" style="margin-bottom:4px; text-transform:uppercase;">
+
+      <!-- GUIDA INFO -->
+      <div id="guide-info-block" style="display:none; margin:14px 0;">
+        <div class="guide-badge">
+          <div class="guide-avatar">🧭</div>
+          <div class="guide-info">
+            <div class="guide-name" id="guide-display-name">—</div>
+            <div class="guide-number" id="guide-display-phone">—</div>
+            <div id="guide-display-tour" style="font-size:0.75rem; opacity:0.75; margin-top:3px; font-style:italic;"></div>
+          </div>
+          <div id="t-guide-label" style="font-size:0.72rem; opacity:0.65; text-align:right; line-height:1.4;">La tua<br>guida</div>
+        </div>
+      </div>
+
+      <!-- INGRESSO CAPOGRUPPO -->
+      <div id="party-block" style="display:none; margin:16px 0;">
+        <div id="t-party-title" style="font-size:0.82rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:rgba(50,50,50,0.55); margin-bottom:10px;">
+          👥 Partecipanti del tuo gruppo
+        </div>
+        <div class="party-header">
+          <span id="t-col-name">Nome</span>
+          <span id="t-col-surname">Cognome</span>
+          <span style="width:36px;"></span>
+        </div>
+        <div id="party-members-list"></div>
+        <button class="add-member-btn" id="t-add-member-btn" onclick="addPartyMember()">＋ Aggiungi partecipante</button>
+        <div class="party-summary" id="party-summary" style="display:none;"></div>
+      </div>
+
+      <!-- CIBO & INTOLLERANZE — DISABILITATO TEMPORANEAMENTE
+      <div id="food-block" style="display:none; margin:16px 0;">...</div>
+      -->
+
+      <!-- SCARICO DI RESPONSABILITÀ -->
+      <div id="waiver-block" style="display:none; margin:16px 0;">
+        <div class="waiver-box">
+          <h4>⚖️ <span id="waiver-display-title">Liberatoria di Partecipazione</span></h4>
+          <div class="waiver-text" id="waiver-display-text"></div>
+          <div class="waiver-sign">
+            <input type="checkbox" id="waiver-consent">
+            <label for="waiver-consent" id="t-waiver-accept">Ho letto e accetto il contenuto della liberatoria sopra riportata.</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="gdpr-box">
+        <input type="checkbox" id="gdpr-consent">
+        <label for="gdpr-consent" id="t-gdpr-text">
+          Acconsento al trattamento dei miei dati personali e delle foto caricate secondo la
+          <a href="#" onclick="showPrivacy()">Privacy Policy</a> del sito.
+          Le mie foto potranno essere pubblicate sul blog previa selezione e approvazione.
+        </label>
+      </div>
+
+      <button class="btn btn-primary" id="t-join-btn" style="width:100%; justify-content:center;" onclick="joinSession()">
+        Entra nella Sessione →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     VISTA SESSIONE GRUPPO
+══════════════════════════════════════ -->
+<div id="view-login" class="view active" style="display:block">
+  <div class="join-screen">
+    <div class="join-card" style="max-width:420px;">
+
+      <div class="hero-icon">🔐</div>
+      <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:1.8rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Area Riservata</h2>
+      <p style="font-size:0.88rem;color:rgba(50,50,50,0.5);margin-bottom:28px;">Accesso per guide e amministratori</p>
+
+      <!-- SELEZIONE RUOLO -->
+      <div style="display:flex;gap:10px;margin-bottom:24px;">
+        <button id="login-tab-guide" onclick="switchLoginTab('guide')"
+          style="flex:1;padding:12px;border-radius:10px;border:2px solid #8cc63f;background:#8cc63f;color:#111111;font-weight:700;font-size:0.9rem;cursor:pointer;font-family:'Barlow',sans-serif;text-transform:uppercase;letter-spacing:0.04em;">
+          🧭 Sono una Guida
+        </button>
+        <button id="login-tab-admin" onclick="switchLoginTab('admin')"
+          style="flex:1;padding:12px;border-radius:10px;border:2px solid #dddddd;background:transparent;color:rgba(50,50,50,0.6);font-weight:700;font-size:0.9rem;cursor:pointer;font-family:'Barlow',sans-serif;text-transform:uppercase;letter-spacing:0.04em;">
+          🔧 Sono Admin
+        </button>
+      </div>
+
+      <!-- FORM GUIDA -->
+      <div id="login-form-guide">
+        <label>Seleziona la tua guida</label>
+        <select id="login-guide-select" style="width:100%;margin-bottom:16px;" onchange="onLoginGuideSelect(this.value)">
+          <option value="">— Seleziona —</option>
+        </select>
+
+        <div id="login-guide-avatar" style="display:none;align-items:center;gap:14px;padding:14px;background:#eeeeee;border-radius:12px;border:1px solid #dddddd;margin-bottom:18px;">
+          <div id="login-guide-avatar-img" style="width:52px;height:52px;border-radius:50%;background:#8cc63f;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:#111111;flex-shrink:0;overflow:hidden;">
+          </div>
+          <div>
+            <div id="login-guide-name-display" style="font-weight:700;font-size:1rem;"></div>
+            <div id="login-guide-phone-display" style="font-size:0.8rem;opacity:0.5;margin-top:2px;"></div>
+          </div>
+        </div>
+
+        <!-- Aggiungi nuova guida -->
+        <div style="margin-bottom:16px;">
+          <button onclick="toggleNewGuideForm()" style="background:none;border:none;color:#333;font-size:0.85rem;cursor:pointer;padding:4px 0;font-family:inherit;text-decoration:underline;">
+            + Non sei in lista? Aggiungiti
+          </button>
+          </button>
+          <div id="new-guide-form" style="display:none;margin-top:12px;padding:14px;background:#eeeeee;border-radius:10px;border:1px solid #dddddd;">
+            <label style="font-size:0.82rem;margin-bottom:6px;">Nome e Cognome</label>
+            <input type="text" id="new-guide-name-input" placeholder="es. Sofia Bianchi" style="margin-bottom:8px;">
+            <label style="font-size:0.82rem;margin-bottom:6px;">Telefono (opzionale)</label>
+            <input type="tel" id="new-guide-phone-input" placeholder="+39 000 0000000" style="margin-bottom:8px;">
+            <label style="font-size:0.82rem;margin-bottom:6px;">Scegli un PIN</label>
+            <input type="password" id="new-guide-pin-input" maxlength="8" placeholder="min. 4 cifre" style="margin-bottom:10px;letter-spacing:0.1em;">
+            <button class="btn btn-success" style="width:100%;justify-content:center;font-size:0.85rem;" onclick="registerNewGuide()">✅ Registrati</button>
+          </div>
+        </div>
+
+        <label>Il tuo PIN</label>
+        <div style="position:relative;margin-bottom:6px;">
+          <input type="password" id="login-guide-pin" maxlength="8" placeholder="••••"
+            style="letter-spacing:0.2em;font-size:1.2rem;text-align:center;"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="togglePinVisibility('login-guide-pin',this)"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:rgba(50,50,50,0.4);">👁</button>
+        </div>
+        <p style="font-size:0.75rem;color:rgba(50,50,50,0.35);margin-bottom:20px;">
+          PIN assegnato dall'amministratore · Default: <strong>1234</strong>
+        </p>
+      </div>
+
+      <!-- FORM ADMIN -->
+      <div id="login-form-admin" style="display:none;">
+        <label>PIN Amministratore</label>
+        <div style="position:relative;margin-bottom:20px;">
+          <input type="password" id="login-admin-pin" maxlength="8" placeholder="••••"
+            style="letter-spacing:0.2em;font-size:1.2rem;text-align:center;"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="togglePinVisibility('login-admin-pin',this)"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:rgba(50,50,50,0.4);">👁</button>
+        </div>
+      </div>
+
+      <div id="login-error" style="display:none;padding:10px 14px;background:rgba(200,70,70,0.15);border:1px solid rgba(200,70,70,0.3);border-radius:8px;font-size:0.85rem;color:#e07070;margin-bottom:16px;text-align:center;">
+        ❌ PIN non corretto. Riprova.
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()">
+        → Accedi
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     VISTA ADMIN
+══════════════════════════════════════ -->
+<div id="view-admin" class="view" hidden style="display:none">
+  <div style="max-width:1100px;margin:0 auto;padding:0 4px;">
+
+    <!-- HEADER ADMIN -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:28px;padding:20px 24px;background:#f5f5f5;border-radius:14px;border:1px solid #dddddd;">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">🔧 Pannello Amministratore</div>
+        <div style="font-size:0.82rem;color:rgba(50,50,50,0.45);margin-top:3px;">Gestione sessioni, guide e blog</div>
+      </div>
+      <button class="btn btn-outline" style="font-size:0.82rem;padding:8px 16px;" onclick="logoutGuide()">⬅ Esci</button>
+    </div>
+
+    <!-- TAB NAVIGATION ADMIN -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;" id="admin-tabs">
+      <button class="admin-tab active" onclick="switchAdminTab('sessions')" id="atab-sessions">📋 Sessioni</button>
+      <button class="admin-tab" onclick="switchAdminTab('blog')"     id="atab-blog">🌟 Blog</button>
+      <button class="admin-tab" onclick="switchAdminTab('guides')"   id="atab-guides">🧭 Guide</button>
+      <button class="admin-tab" onclick="switchAdminTab('settings')" id="atab-settings">⚙️ Impostazioni</button>
+    </div>
+
+    <!-- ── TAB: SESSIONI ── -->
+    <div id="apanel-sessions">
+
+      <!-- Statistiche rapide -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;" id="admin-stats-row">
+        <div style="padding:16px 18px;background:#f5f5f5;border:1px solid #dddddd;border-radius:12px;text-align:center;">
+          <div id="stat-sessions" style="font-family:'Barlow Condensed',sans-serif;font-size:2.2rem;font-weight:800;color:#8cc63f;">0</div>
+          <div style="font-size:0.78rem;opacity:0.5;margin-top:2px;">Sessioni totali</div>
+        </div>
+        <div style="padding:16px 18px;background:#f5f5f5;border:1px solid #dddddd;border-radius:12px;text-align:center;">
+          <div id="stat-photos" style="font-family:'Barlow Condensed',sans-serif;font-size:2.2rem;font-weight:800;color:#8cc63f;">0</div>
+          <div style="font-size:0.78rem;opacity:0.5;margin-top:2px;">Foto totali</div>
+        </div>
+        <div style="padding:16px 18px;background:#f5f5f5;border:1px solid #dddddd;border-radius:12px;text-align:center;">
+          <div id="stat-guides" style="font-family:'Barlow Condensed',sans-serif;font-size:2.2rem;font-weight:800;color:#8cc63f;">0</div>
+          <div style="font-size:0.78rem;opacity:0.5;margin-top:2px;">Guide attive</div>
+        </div>
+        <div style="padding:16px 18px;background:#f5f5f5;border:1px solid #dddddd;border-radius:12px;text-align:center;">
+          <div id="stat-blog" style="font-family:'Barlow Condensed',sans-serif;font-size:2.2rem;font-weight:800;color:#f5a623;">0</div>
+          <div style="font-size:0.78rem;opacity:0.5;margin-top:2px;">Foto nel blog</div>
+        </div>
+      </div>
+
+      <!-- Lista sessioni admin -->
+      <div class="card">
+        <div class="card-title">📋 Tutte le Sessioni</div>
+        <div id="admin-sessions-list">
+          <div class="empty-state"><div class="empty-icon">📂</div><p>Nessuna sessione ancora.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: BLOG ── -->
+    <div id="apanel-blog" style="display:none;">
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">🌟 Gestione Blog</div>
+        <p style="font-size:0.85rem;color:rgba(50,50,50,0.5);margin-bottom:20px;">Seleziona una sessione per approvare le foto da pubblicare.</p>
+
+        <!-- Selettore sessione -->
+        <label>Seleziona Sessione</label>
+        <select id="blog-session-select" onchange="onBlogSessionSelect(this.value)" style="width:100%;margin-bottom:20px;">
+          <option value="">— Scegli una sessione —</option>
+        </select>
+
+        <!-- Scadenza blog -->
+        <div id="blog-expiry-row" style="display:none;margin-bottom:20px;padding:14px 16px;background:#eeeeee;border-radius:10px;border:1px solid #dddddd;">
+          <label style="margin-bottom:8px;">📅 Data scadenza pubblicazione blog</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="date" id="blog-expiry-date" style="flex:1;margin-bottom:0;">
+            <button class="btn btn-secondary" style="white-space:nowrap;" onclick="saveBlogExpiry()">💾 Salva scadenza</button>
+          </div>
+          <p style="font-size:0.73rem;color:rgba(50,50,50,0.35);margin-top:8px;">Dopo questa data le foto non saranno più visibili nel blog.</p>
+        </div>
+      </div>
+
+      <!-- Griglia approvazione -->
+      <div class="card" id="blog-approval-card" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:0;">📸 Foto della Sessione</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success" style="font-size:0.82rem;padding:7px 14px;" onclick="approveAll()">✅ Approva tutto</button>
+            <button class="btn btn-gold" style="font-size:0.82rem;padding:7px 14px;" onclick="publishToBlog()">🌟 Pubblica sul blog</button>
+          </div>
+        </div>
+        <p style="font-size:0.82rem;color:rgba(50,50,50,0.45);margin-bottom:16px;">
+          Approvate le foto per renderle visibili ai clienti
+        </p>
+        <div class="approval-grid" id="approval-grid"></div>
+
+        <!-- Testo blog -->
+        <div style="margin-top:24px;padding-top:20px;border-top:1px solid #dddddd;">
+          <label>✍️ Testo del Post Blog</label>
+          <textarea id="blog-text" style="min-height:90px;" placeholder="Descrizione del tour per il blog..."></textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <span id="blog-selected-count" style="font-size:0.82rem;color:rgba(50,50,50,0.45);align-self:center;">0 foto selezionate per il blog</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: GUIDE ── -->
+    <div id="apanel-guides" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;" class="admin-layout">
+
+        <!-- Aggiungi/modifica guida -->
+        <div class="card">
+          <div class="card-title">➕ Aggiungi / Modifica Guida</div>
+
+          <label>Seleziona guida esistente</label>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <select id="guide-select" onchange="onGuideSelect(this.value)" style="flex:1;margin-bottom:0;">
+              <option value="">— Nuova guida —</option>
+            </select>
+            <button type="button" class="btn btn-outline" style="padding:9px 14px;border-radius:10px;" onclick="deleteGuide()" title="Elimina guida">🗑️</button>
+          </div>
+
+          <label>Nome</label>
+          <input type="text" id="guide-name" placeholder="Nome e Cognome">
+
+          <label>Telefono</label>
+          <input type="tel" id="guide-phone" placeholder="+39 000 0000000">
+
+          <label>PIN Guida</label>
+          <div style="position:relative;margin-bottom:16px;">
+            <input type="password" id="guide-pin" maxlength="8" placeholder="PIN (min. 4 cifre) · Default: 1234" style="margin-bottom:0;letter-spacing:0.1em;">
+            <button onclick="togglePinVisibility('guide-pin',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:0.9rem;color:rgba(50,50,50,0.4);">👁</button>
+          </div>
+
+          <button type="button" class="btn btn-success" style="width:100%;justify-content:center;" onclick="saveGuide()">💾 Salva Guida</button>
+        </div>
+
+        <!-- Lista guide -->
+        <div class="card">
+          <div class="card-title">🧭 Guide in Rubrica</div>
+          <div id="admin-guides-list">
+            <div class="empty-state"><div class="empty-icon">🧭</div><p>Nessuna guida ancora.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tipi di tour -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title">🗺️ Tipi di Tour</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="tour-type-select" onchange="onTourTypeSelect(this.value)" style="flex:1;margin-bottom:0;">
+            <option value="">— Seleziona tipo tour o aggiungi nuovo —</option>
+          </select>
+          <button type="button" class="btn btn-outline" style="padding:9px 14px;" onclick="deleteTourType()" title="Elimina">🗑️</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input type="text" id="tour-type" placeholder="es. City Walking Tour, Food Tour…" style="flex:1;margin-bottom:0;">
+          <button type="button" class="btn btn-success" style="padding:9px 16px;white-space:nowrap;" onclick="saveTourType()">💾 Salva</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: IMPOSTAZIONI ── -->
+    <div id="apanel-settings" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;" class="admin-layout">
+
+        <div class="card">
+          <div class="card-title">📧 Contatto Manager</div>
+          <label>Email di Contatto per i Clienti</label>
+          <input type="text" id="manager-email" placeholder="es. info@mytour.it">
+          <p style="font-size:0.75rem;color:rgba(50,50,50,0.4);margin-top:-10px;margin-bottom:16px;">Mostrata ai partecipanti come riferimento.</p>
+          <!-- hidden wa input kept for JS compatibility -->
+          <input type="hidden" id="manager-wa">
+          <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="saveManagerSettings()">💾 Salva Email</button>
+          <div id="manager-saved-badge" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(58,170,90,0.18);border-radius:8px;font-size:0.82rem;color:#5dbb7a;font-weight:500;">✅ Impostazioni salvate</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔐 Sicurezza</div>
+          <label>Cambia PIN Amministratore</label>
+          <div style="position:relative;margin-bottom:6px;">
+            <input type="password" id="new-admin-pin" maxlength="8" placeholder="Nuovo PIN admin" style="margin-bottom:0;letter-spacing:0.1em;">
+            <button onclick="togglePinVisibility('new-admin-pin',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:0.9rem;color:rgba(50,50,50,0.4);">👁</button>
+          </div>
+          <p style="font-size:0.73rem;color:rgba(50,50,50,0.35);margin-bottom:14px;">PIN predefinito: <strong>0000</strong></p>
+          <button class="btn btn-outline" style="width:100%;justify-content:center;" onclick="changeAdminPin()">💾 Salva PIN Admin</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════
+     VISTA GUIDA (Dashboard)
+══════════════════════════════════════ -->
+<div id="view-guide" class="view" hidden style="display:none">
+  <div class="admin-layout">
+
+    <!-- COLONNA SX: Profilo + Nuova Sessione -->
+    <div>
+
+      <!-- PROFILO GUIDA -->
+      <div class="card" style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:0;">👤 Il Mio Profilo</div>
+          <button class="btn btn-outline" style="font-size:0.75rem;padding:6px 12px;" onclick="logoutGuide()">⬅ Esci</button>
+        </div>
+
+        <!-- Avatar -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+          <div id="guide-profile-avatar" style="width:68px;height:68px;border-radius:50%;background:#8cc63f;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;color:#111111;flex-shrink:0;overflow:hidden;border:3px solid #8cc63f;cursor:pointer;position:relative;" onclick="document.getElementById('guide-avatar-input').click()">
+            <span id="guide-profile-avatar-content">?</span>
+            <div style="position:absolute;bottom:0;right:0;width:22px;height:22px;background:#f5f5f5;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;">📷</div>
+          </div>
+          <input type="file" id="guide-avatar-input" accept="image/*" style="display:none;" onchange="uploadGuideAvatar(this)">
+          <div>
+            <div id="guide-profile-name-display" style="font-size:1.1rem;font-weight:700;"></div>
+            <div id="guide-profile-phone-display" style="font-size:0.82rem;opacity:0.5;margin-top:2px;"></div>
+            <div style="font-size:0.75rem;color:#8cc63f;margin-top:4px;font-weight:600;">🧭 Guida Certificata</div>
+          </div>
+        </div>
+
+        <label>Nome</label>
+        <input type="text" id="guide-profile-name" placeholder="Il tuo nome">
+
+        <label>Telefono</label>
+        <input type="tel" id="guide-profile-phone" placeholder="+39 000 0000000">
+
+        <label>Cambia PIN (lascia vuoto per non cambiare)</label>
+        <div style="position:relative;margin-bottom:16px;">
+          <input type="password" id="guide-profile-pin" maxlength="8" placeholder="Nuovo PIN"
+            style="letter-spacing:0.15em;font-size:1.1rem;text-align:center;margin-bottom:0;">
+          <button onclick="togglePinVisibility('guide-profile-pin',this)"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:rgba(50,50,50,0.4);">👁</button>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="saveGuideProfile()">💾 Salva Profilo</button>
+      </div>
+
+      <!-- CREA SESSIONE (versione guida) -->
+      <div class="card">
+        <div class="card-title">✨ Nuova Sessione</div>
+
+        <label>Nome Sessione</label>
+        <input type="text" id="guide-session-name" placeholder="es. Tour Roma Nord – Mattina">
+
+        <label>Data Evento</label>
+        <input type="date" id="guide-session-date">
+
+        <label>Tipo di Tour</label>
+        <div style="display:flex;gap:8px;margin-bottom:6px;">
+          <select id="guide-session-tour" style="flex:1;margin-bottom:0;">
+            <option value="">— Seleziona tipo tour —</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <input type="text" id="guide-new-tour-type" placeholder="Aggiungi nuovo tipo…" style="flex:1;margin-bottom:0;font-size:0.85rem;">
+          <button class="btn btn-outline" style="padding:8px 14px;white-space:nowrap;font-size:0.82rem;" onclick="guideAddTourType()">+ Aggiungi</button>
+        </div>
+
+        <!-- LINGUE SESSIONE -->
+        <div style="border-top:1px solid #dddddd;margin-top:4px;padding-top:14px;margin-bottom:16px;">
+          <label>🌐 Lingue della Sessione</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <label class="lang-check-item">
+              <input type="checkbox" id="guide-lang-it" value="it" checked disabled>
+              <span>🇮🇹 IT</span>
+            </label>
+            <label class="lang-check-item">
+              <input type="checkbox" id="guide-lang-en" value="en" checked>
+              <span>🇬🇧 EN</span>
+            </label>
+            <label class="lang-check-item">
+              <input type="checkbox" id="guide-lang-fr" value="fr">
+              <span>🇫🇷 FR</span>
+            </label>
+            <label class="lang-check-item">
+              <input type="checkbox" id="guide-lang-es" value="es">
+              <span>🇪🇸 ES</span>
+            </label>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <label style="margin-bottom:0;white-space:nowrap;font-size:0.82rem;">Lingua default:</label>
+            <select id="guide-default-lang" style="flex:1;margin-bottom:0;padding:7px 10px;font-size:0.82rem;">
+              <option value="it">🇮🇹 Italiano</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="es">🇪🇸 Español</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="guideCreateSession()">🗺️ Crea Sessione & Genera QR</button>
+
+        <div id="guide-qr-output" style="display:none;margin-top:20px;text-align:center;">
+          <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;">Sessione Creata!</h3>
+          <p style="font-size:0.85rem;color:rgba(50,50,50,0.5);margin-bottom:16px;">Mostra il QR ai partecipanti per farli entrare</p>
+          <div id="guide-qrcode" style="display:inline-block;padding:12px;background:white;border-radius:12px;margin-bottom:14px;"></div>
+          <div><span id="guide-session-code-display" class="session-code-badge"></span></div>
+          <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="downloadGuideQR()">⬇️ Scarica QR</button>
+            <button class="btn btn-outline" onclick="copyGuideLink()">🔗 Copia Link</button>
+          </div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #dddddd;">
+            <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="guideEnterSession()">
+              🧭 Entra nella Sessione
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLONNA DX: Le mie sessioni -->
+    <div>
+      <div class="card">
+        <div class="card-title">📋 Le Mie Sessioni</div>
+        <div id="guide-sessions-list">
+          <div class="empty-state">
+            <div class="empty-icon">🗺️</div>
+            <p>Nessuna sessione ancora.<br>Creane una qui a sinistra!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     VISTA JOIN (simulazione QR scan)
+══════════════════════════════════════ -->
+<div id="view-group" class="view" hidden style="display:none">
+  <div class="session-layout">
+
+    <!-- HEADER — visibile solo a guida e admin -->
+    <div id="session-header-privileged" class="session-header" style="display:none;">
+      <div>
+        <h2 id="active-session-name">Sessione di Gruppo</h2>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span id="member-count-badge" class="badge badge-active">👥 1</span>
+        <span id="guide-role-badge" style="display:none; padding:5px 14px; border-radius:50px; background:linear-gradient(135deg,#141f10,#1f3a14); border:1px solid rgba(140,198,63,0.35); color:#111111; font-size:0.78rem; font-weight:700;">🧭 <span id="guide-role-name">Guida</span></span>
+        <button class="btn btn-outline" onclick="exitSession()">← Esci</button>
+      </div>
+    </div>
+
+    <!-- HEADER CLIENTE — guida, email, utenti online, esci -->
+    <div id="session-header-client" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:12px 0 20px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:1;">
+        <div id="client-guide-badge" style="display:none; align-items:center; gap:10px; background:linear-gradient(135deg,#141f10,#1f3a14); border:1px solid rgba(140,198,63,0.3); color:#111111; padding:10px 16px; border-radius:10px;">
+          <span style="font-size:1.3rem;">🧭</span>
+          <div>
+            <div id="client-guide-name" style="font-weight:700; font-size:0.9rem;"></div>
+            <div id="client-guide-phone" style="font-size:0.78rem; opacity:0.7; margin-top:1px;"></div>
+          </div>
+        </div>
+        <a href="mailto:info@esbiketour.com" style="display:inline-flex; align-items:center; gap:7px; padding:10px 16px; background:#f5f5f5; border:1px solid #dddddd; border-radius:10px; font-size:0.82rem; color:#8cc63f; font-weight:600; text-decoration:none;">
+          📧 info@esbiketour.com
+        </a>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="display:inline-flex; align-items:center; gap:6px; padding:7px 14px; background:#f5f5f5; border:1px solid #dddddd; border-radius:8px; font-size:0.82rem; font-weight:700;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#8cc63f;display:inline-block;box-shadow:0 0 6px #8cc63f;"></span>
+          <span id="client-online-count">1</span> online
+        </span>
+        <button class="btn btn-outline" style="font-size:0.82rem; padding:8px 16px;" onclick="exitSession()">← Esci</button>
+      </div>
+    </div>
+
+    <!-- SUMMARY CARD — solo guida e admin -->
+    <div id="session-summary-card" class="summary-card" style="display:none;">
+      <h3>📋 Riepilogo Sessione</h3>
+      <div class="summary-grid" id="summary-grid-content"></div>
+      <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-whatsapp" id="wa-send-btn" style="display:none;" onclick="sendWhatsApp()">
+          💬 Invia Riepilogo su WhatsApp
+        </button>
+      </div>
+    </div>
+
+    <!-- LANG SWITCHER — visibile a tutti -->
+    <div class="group-lang-switcher" id="group-lang-switcher"></div>
+
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" style="cursor:pointer;">
+      <input type="file" id="file-input" multiple accept="image/*,image/heic,image/heif" onchange="handleFileSelect(event)">
+      <div class="upload-icon">📷</div>
+      <h3 id="t-upload-title">Tocca per scegliere le foto</h3>
+      <p id="t-upload-sub">Si apre la galleria · JPG, PNG, HEIC</p>
+    </div>
+
+    <!-- Barra selezione multipla download -->
+    <div id="multi-select-bar" style="display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:12px 16px; background:#f5f5f5; border:1px solid #8cc63f; border-radius:12px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:1.2rem;">✅</span>
+        <span id="multi-select-count" style="font-weight:700; font-size:0.95rem;">0 foto selezionate</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-outline" style="font-size:0.82rem; padding:7px 14px;" onclick="selectAllPhotos()">Seleziona tutte</button>
+        <button class="btn btn-outline" style="font-size:0.82rem; padding:7px 14px;" onclick="clearPhotoSelection()">Deseleziona</button>
+        <button class="btn btn-primary" style="font-size:0.82rem; padding:7px 16px;" onclick="downloadSelectedPhotos()">⬇️ Scarica selezionate</button>
+      </div>
+    </div>
+
+    <!-- Photo Grid -->
+    <div id="photo-grid" class="photo-grid">
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-icon">🌄</div>
+        <p>Nessuna foto ancora. Sii il primo a condividere!</p>
+      </div>
+    </div>
+
+    <!-- Guide Favorites Panel (visibile solo guida) -->
+    <div id="guide-favorites-section" style="display:none; background:linear-gradient(135deg,#f0f5ff,#e8f0fe); border:2px solid #2a6b8a; border-radius:16px; padding:28px 32px; margin-top:24px;">
+      <div style="font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:700; color:#8cc63f; margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+        🧭 Le mie foto preferite
+      </div>
+      <p style="font-size:0.85rem; color:rgba(50,50,50,0.55); margin-bottom:16px;">
+        Seleziona le foto che preferisci: <strong id="guide-fav-count">0</strong> selezionate. La selezione sarà visibile all'admin per la pubblicazione sul blog.
+      </p>
+      <div id="guide-fav-preview" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;"></div>
+      <button class="btn btn-outline" style="border-color:#8cc63f; color:#8cc63f;" onclick="clearGuideFavorites()">Cancella selezione</button>
+    </div>
+
+  </div>
+</div>
+
+
+<div id="modal-blog" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🎉 Pubblicato sul Blog!</h3>
+      <button class="modal-close" onclick="closeModal('modal-blog')">✕</button>
+    </div>
+    <div style="text-align:center; padding:20px 0;">
+      <div style="font-size:4rem; margin-bottom:16px;">🌟</div>
+      <p style="font-size:1rem; line-height:1.7; color:rgba(50,50,50,0.7);">
+        Le foto selezionate sono state inviate per la pubblicazione sul blog!<br>
+        Tutti i membri del gruppo riceveranno una notifica via email.
+      </p>
+      <div id="blog-published-thumbs" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:20px 0;"></div>
+      <button class="btn btn-primary" onclick="closeModal('modal-blog')">Perfetto!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy Modal -->
+<div id="modal-privacy" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Privacy Policy – Trattamento Dati</h3>
+      <button class="modal-close" onclick="closeModal('modal-privacy')">✕</button>
+    </div>
+    <div style="font-size:0.88rem; line-height:1.8; color:rgba(15,14,13,0.75);">
+      <p><strong>Titolare del trattamento:</strong> Il sito web che ospita questa applicazione.</p>
+      <br>
+      <p><strong>Dati raccolti:</strong> Nome utente, foto caricate, commenti e reazioni.</p>
+      <br>
+      <p><strong>Finalità:</strong> Condivisione fotografica nell'ambito di sessioni di gruppo a tempo limitato e possibile pubblicazione di contenuti selezionati sul blog del sito.</p>
+      <br>
+      <p><strong>Durata:</strong> I dati vengono conservati per la durata della sessione (definita dall'organizzatore) più un periodo di 30 giorni per la pubblicazione sul blog.</p>
+      <br>
+      <p><strong>Diritti:</strong> Puoi richiedere la modifica o cancellazione dei tuoi dati in qualsiasi momento contattandoci tramite la pagina Contatti del sito.</p>
+      <br>
+      <p><strong>Condivisione:</strong> I tuoi dati non vengono ceduti a terzi. Le foto pubblicate sul blog sono visibili pubblicamente.</p>
+      <br>
+      <button class="btn btn-primary" onclick="closeModal('modal-privacy')">Ho capito</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<!-- Toasts -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ════════════════════════════════════
+//  i18n — TRANSLATIONS
+// ════════════════════════════════════
+const TRANSLATIONS = {
+  it: {
+    flag: '🇮🇹', label: 'Italiano',
+    joinTitle: 'Unisciti alla Sessione',
+    welcome: 'Benvenuto! Carica e condividi le tue foto con il gruppo.',
+    contactLabel: 'Hai bisogno di assistenza?',
+    labelName: 'Il tuo nome',
+    namePlaceholder: 'es. Marco Bianchi',
+    labelCode: 'Codice Sessione',
+    guideLabel: 'La tua\nguida',
+    partyTitle: '👥 Partecipanti del tuo gruppo',
+    colName: 'Nome', colSurname: 'Cognome',
+    addMember: '＋ Aggiungi partecipante',
+    waiverAccept: 'Ho letto e accetto il contenuto della liberatoria sopra riportata.',
+    gdpr: 'Acconsento al trattamento dei miei dati personali e delle foto caricate secondo la <a href="#" onclick="showPrivacy()">Privacy Policy</a> del sito. Le mie foto potranno essere pubblicate sul blog previa selezione e approvazione.',
+    joinBtn: 'Entra nella Sessione →',
+    uploadTitle: 'Tocca per scegliere le foto',
+    uploadSub: 'Si apre la galleria · JPG, PNG, HEIC',
+    emptyPhotos: 'Nessuna foto ancora. Sii il primo a condividere!',
+    commentPlaceholder: 'Scrivi un commento...',
+    downloadBtn: '⬇️ Download',
+    noPhotos: 'Nessuna foto ancora.',
+    partySummary: (total) => `👥 Gruppo totale: ${total} person${total===1?'a':'e'}`,
+  },
+  en: {
+    flag: '🇬🇧', label: 'English',
+    joinTitle: 'Join the Session',
+    welcome: 'Welcome! Upload and share your photos with the group.',
+    contactLabel: 'Need assistance?',
+    labelName: 'Your name',
+    namePlaceholder: 'e.g. John Smith',
+    labelCode: 'Session Code',
+    guideLabel: 'Your\nguide',
+    partyTitle: '👥 Your group members',
+    colName: 'First name', colSurname: 'Last name',
+    addMember: '＋ Add member',
+    waiverAccept: 'I have read and accept the waiver above.',
+    gdpr: 'I consent to the processing of my personal data and uploaded photos in accordance with the site\'s <a href="#" onclick="showPrivacy()">Privacy Policy</a>. My photos may be published on the blog after selection and approval.',
+    joinBtn: 'Join the Session →',
+    uploadTitle: 'Tap to choose photos',
+    uploadSub: 'Opens your gallery · JPG, PNG, HEIC',
+    emptyPhotos: 'No photos yet. Be the first to share!',
+    commentPlaceholder: 'Write a comment...',
+    downloadBtn: '⬇️ Download',
+    noPhotos: 'No photos yet.',
+    partySummary: (total) => `👥 Total group: ${total} person${total===1?'':'s'}`,
+  },
+  fr: {
+    flag: '🇫🇷', label: 'Français',
+    joinTitle: 'Rejoindre la Session',
+    welcome: 'Bienvenue ! Chargez et partagez vos photos avec le groupe.',
+    contactLabel: 'Besoin d\'aide ?',
+    labelName: 'Votre prénom',
+    namePlaceholder: 'ex. Jean Dupont',
+    labelCode: 'Code de Session',
+    guideLabel: 'Votre\nguide',
+    partyTitle: '👥 Membres de votre groupe',
+    colName: 'Prénom', colSurname: 'Nom',
+    addMember: '＋ Ajouter un membre',
+    waiverAccept: 'J\'ai lu et j\'accepte le contenu de la décharge ci-dessus.',
+    gdpr: 'Je consens au traitement de mes données personnelles et des photos téléchargées conformément à la <a href="#" onclick="showPrivacy()">Politique de Confidentialité</a> du site. Mes photos pourront être publiées sur le blog après sélection et approbation.',
+    joinBtn: 'Rejoindre la Session →',
+    uploadTitle: 'Appuyez pour choisir des photos',
+    uploadSub: 'Ouvre votre galerie · JPG, PNG, HEIC',
+    emptyPhotos: 'Pas encore de photos. Soyez le premier à partager !',
+    commentPlaceholder: 'Écrire un commentaire...',
+    downloadBtn: '⬇️ Télécharger',
+    noPhotos: 'Pas encore de photos.',
+    partySummary: (total) => `👥 Groupe total : ${total} personne${total===1?'':'s'}`,
+  },
+  es: {
+    flag: '🇪🇸', label: 'Español',
+    joinTitle: 'Únete a la Sesión',
+    welcome: '¡Bienvenido! Sube y comparte tus fotos con el grupo.',
+    contactLabel: '¿Necesitas ayuda?',
+    labelName: 'Tu nombre',
+    namePlaceholder: 'ej. Carlos García',
+    labelCode: 'Código de Sesión',
+    guideLabel: 'Tu\nguía',
+    partyTitle: '👥 Miembros de tu grupo',
+    colName: 'Nombre', colSurname: 'Apellido',
+    addMember: '＋ Añadir miembro',
+    waiverAccept: 'He leído y acepto el contenido de la exención de responsabilidad.',
+    gdpr: 'Consiento el tratamiento de mis datos personales y fotos subidas de acuerdo con la <a href="#" onclick="showPrivacy()">Política de Privacidad</a> del sitio. Mis fotos podrán publicarse en el blog previa selección y aprobación.',
+    joinBtn: 'Unirse a la Sesión →',
+    uploadTitle: 'Toca para elegir fotos',
+    uploadSub: 'Abre tu galería · JPG, PNG, HEIC',
+    emptyPhotos: 'Aún no hay fotos. ¡Sé el primero en compartir!',
+    commentPlaceholder: 'Escribe un comentario...',
+    downloadBtn: '⬇️ Descargar',
+    noPhotos: 'Aún no hay fotos.',
+    partySummary: (total) => `👥 Grupo total: ${total} persona${total===1?'':'s'}`,
+  }
+};
+
+// Comment translations map: { lang: { original_text: translated_text } }
+// Static — populated when a comment is added
+const commentTranslations = {}; // photoId -> [{ lang, text }]
+
+// Static phrase translator (keyword-based for demo comments)
+function staticTranslate(text, toLang) {
+  if (toLang === 'it') return text; // assume original is italian
+  const map = {
+    en: { 'Che bella foto!': 'What a beautiful photo!', 'Fantastico!': 'Fantastic!', 'Bellissimo!': 'Beautiful!', 'Grazie mille!': 'Thank you so much!', 'Che panorama!': 'What a view!' },
+    fr: { 'Che bella foto!': 'Quelle belle photo !', 'Fantastico!': 'Fantastique !', 'Bellissimo!': 'Magnifique !', 'Grazie mille!': 'Merci beaucoup !', 'Che panorama!': 'Quel panorama !' },
+    es: { 'Che bella foto!': '¡Qué foto tan bonita!', 'Fantastico!': '¡Fantástico!', 'Bellissimo!': '¡Precioso!', 'Grazie mille!': '¡Muchas gracias!', 'Che panorama!': '¡Qué panorama!' },
+  };
+  return map[toLang]?.[text] || text;
+}
+
+// ════════════════════════════════════
+//  STATE
+// ════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  BASE URL — WordPress / plugin safe
+// ════════════════════════════════════════════════════════
+function getBaseUrl() {
+  // Se siamo dentro un plugin WP embeddato direttamente nella pagina,
+  // window.location è già quello corretto (non è un iframe)
+  return window.location.href.split('?')[0];
+}
+
+function getUrlParams() {
+  return new URLSearchParams(window.location.search);
+}
+
+// ════════════════════════════════════════════════════════
+//  VARIABILI GLOBALI
+// ════════════════════════════════════════════════════════
+let sessions = [];
+let photos = [];
+let activeSession = null;
+let currentUser = null;
+let isAdmin = false;
+let isGuide = false; // true quando la guida entra con accesso rapido
+let guideFavorites  = new Set(); // foto preferite dalla guida
+let selectedForBlog = new Set();
+let selectedPhotos  = new Set(); // selezione multipla download clienti
+let memberCount = 1;
+let partyMembers = []; // [{name, surname}]
+let selectedFoodTags = new Set();
+let currentLang = 'en'; // default inglese per clienti
+let sessionLangs = ['it', 'en']; // lingue attive nella sessione
+
+const avatarColors = ['#c8552a','#2a6b8a','#2a8a5a','#8a2a6b','#6b8a2a','#8a6b2a'];
+
+// ════════════════════════════════════
+//  APPLY LANGUAGE
+// ════════════════════════════════════
+function applyLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  currentLang = lang;
+  const T = TRANSLATIONS[lang];
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setHTML = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+  set('t-join-title', T.joinTitle);
+  set('t-welcome-msg', T.welcome);
+  set('t-contact-label', T.contactLabel);
+  set('t-label-name', T.labelName);
+  set('t-label-code', T.labelCode);
+  const gLabel = document.getElementById('t-guide-label');
+  if (gLabel) gLabel.innerHTML = T.guideLabel.replace('\n','<br>');
+  set('t-party-title', T.partyTitle);
+  set('t-col-name', T.colName);
+  set('t-col-surname', T.colSurname);
+  set('t-add-member-btn', T.addMember);
+  set('t-waiver-accept', T.waiverAccept);
+  setHTML('t-gdpr-text', T.gdpr);
+  set('t-join-btn', T.joinBtn);
+  const uInput = document.getElementById('join-username');
+  if (uInput) uInput.placeholder = T.namePlaceholder;
+  set('t-upload-title', T.uploadTitle);
+  set('t-upload-sub', T.uploadSub);
+
+  updateLangSwitchers();
+}
+
+function updateLangSwitchers() {
+  const jsw = document.getElementById('join-lang-switcher');
+  if (jsw) {
+    jsw.innerHTML = sessionLangs.map(l => {
+      const T = TRANSLATIONS[l];
+      return `<button class="lang-btn ${l === currentLang ? 'active' : ''}" onclick="applyLang('${l}')">${T.flag} ${T.label}</button>`;
+    }).join('');
+  }
+  const gsw = document.getElementById('group-lang-switcher');
+  if (gsw) {
+    if (sessionLangs.length > 1) {
+      gsw.innerHTML = sessionLangs.map(l => {
+        const T = TRANSLATIONS[l];
+        return `<button class="group-lang-btn ${l === currentLang ? 'active' : ''}" onclick="applyLang('${l}')">${T.flag} ${T.label}</button>`;
+      }).join('');
+      gsw.style.display = 'flex';
+    } else {
+      gsw.style.display = 'none';
+    }
+  }
+}
+
+// ════════════════════════════════════
+//  GUIDE & TOUR TYPE MEMORY (localStorage)
+// ════════════════════════════════════
+const GUIDES_KEY = 'photosession_guides';
+const TOURS_KEY  = 'photosession_tourtypes';
+
+function loadGuides() {
+  try { return JSON.parse(localStorage.getItem(GUIDES_KEY) || '[]'); } catch { return []; }
+}
+function saveGuides(arr) {
+  localStorage.setItem(GUIDES_KEY, JSON.stringify(arr));
+}
+function loadTourTypes() {
+  try { return JSON.parse(localStorage.getItem(TOURS_KEY) || '[]'); } catch { return []; }
+}
+function saveTourTypes(arr) {
+  localStorage.setItem(TOURS_KEY, JSON.stringify(arr));
+}
+
+function renderGuideSelect(selectVal) {
+  const sel = document.getElementById('guide-select');
+  if (!sel) return;
+  const guides = loadGuides();
+  sel.innerHTML = '<option value="">— Seleziona guida esistente o aggiungi nuova —</option>' +
+    guides.map(g => `<option value="${g.name}||${g.phone}">${g.name} — ${g.phone}</option>`).join('');
+  if (selectVal !== undefined) sel.value = selectVal;
+}
+
+function renderTourTypeSelect(selectVal) {
+  const sel = document.getElementById('tour-type-select');
+  if (!sel) return;
+  const types = loadTourTypes();
+  sel.innerHTML = '<option value="">— Seleziona tipo tour o aggiungi nuovo —</option>' +
+    types.map(t => `<option value="${t}">${t}</option>`).join('');
+  if (selectVal !== undefined) sel.value = selectVal;
+}
+
+function onGuideSelect(val) {
+  if (!val) {
+    document.getElementById('guide-name').value = '';
+    document.getElementById('guide-phone').value = '';
+    return;
+  }
+  const [name, phone] = val.split('||');
+  document.getElementById('guide-name').value = name || '';
+  document.getElementById('guide-phone').value = phone || '';
+}
+
+function onTourTypeSelect(val) {
+  document.getElementById('tour-type').value = val || '';
+}
+
+function saveGuide() {
+  const name  = document.getElementById('guide-name').value.trim();
+  const phone = document.getElementById('guide-phone').value.trim();
+  const pin   = document.getElementById('guide-pin')?.value.trim() || '';
+  if (!name) { toast('⚠️ Inserisci il nome della guida', 'warn'); return; }
+  const guides = loadGuides();
+  const existing = guides.find(g => g.name === name);
+  if (existing) {
+    existing.phone = phone;
+    if (pin) existing.pin = pin;
+    toast(`✏️ Guida "${name}" aggiornata`);
+  } else {
+    guides.push({ name, phone, pin: pin || '1234' });
+    toast(`💾 Guida "${name}" salvata · PIN: ${pin || '1234'}`);
+  }
+  saveGuides(guides);
+  renderGuideSelect(`${name}||${phone}`);
+  renderLoginGuideSelect();
+  if (document.getElementById('guide-pin')) document.getElementById('guide-pin').value = '';
+}
+
+function deleteGuide() {
+  const sel = document.getElementById('guide-select');
+  if (!sel.value) { toast('⚠️ Seleziona prima una guida da eliminare', 'warn'); return; }
+  const [name] = sel.value.split('||');
+  if (!confirm(`Eliminare la guida "${name}" dalla rubrica?`)) return;
+  saveGuides(loadGuides().filter(g => g.name !== name));
+  document.getElementById('guide-name').value = '';
+  document.getElementById('guide-phone').value = '';
+  renderGuideSelect();
+  toast(`🗑️ Guida "${name}" eliminata`);
+}
+
+function saveTourType() {
+  const val = document.getElementById('tour-type').value.trim();
+  if (!val) { toast('⚠️ Inserisci il tipo di tour', 'warn'); return; }
+  const types = loadTourTypes();
+  if (!types.includes(val)) {
+    types.push(val);
+    saveTourTypes(types);
+    toast(`💾 Tipo tour "${val}" salvato`);
+  } else {
+    toast(`ℹ️ Tipo tour già presente`);
+  }
+  renderTourTypeSelect(val);
+}
+
+function deleteTourType() {
+  const sel = document.getElementById('tour-type-select');
+  if (!sel.value) { toast('⚠️ Seleziona prima un tipo tour da eliminare', 'warn'); return; }
+  const val = sel.value;
+  if (!confirm(`Eliminare il tipo tour "${val}"?`)) return;
+  saveTourTypes(loadTourTypes().filter(t => t !== val));
+  document.getElementById('tour-type').value = '';
+  renderTourTypeSelect();
+  toast(`🗑️ Tipo tour "${val}" eliminato`);
+}
+
+// ════════════════════════════════════
+//  MANAGER SETTINGS
+// ════════════════════════════════════
+const MANAGER_KEY = 'photosession_manager';
+
+function loadManagerSettings() {
+  try { return JSON.parse(localStorage.getItem(MANAGER_KEY) || '{}'); } catch { return {}; }
+}
+
+function generateSessionCode(guideName, sessionName, date) {
+  const slug = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toUpperCase().replace(/[^A-Z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').substring(0,12);
+  const dateStr = date ? date.replace(/-/g,'').substring(2) : // YYMMDD
+    new Date().toISOString().slice(2,10).replace(/-/g,'');
+  const parts = [slug(guideName), slug(sessionName), dateStr].filter(Boolean);
+  return parts.join('-');
+}
+
+function changeAdminPin() {
+  const newPin = document.getElementById('new-admin-pin').value.trim();
+  if (!newPin || newPin.length < 4) { toast('⚠️ Il PIN deve avere almeno 4 caratteri', 'warn'); return; }
+  localStorage.setItem(ADMIN_PIN_KEY, newPin);
+  document.getElementById('new-admin-pin').value = '';
+  toast('🔐 PIN amministratore aggiornato!');
+}
+
+function saveManagerSettings() {
+  const email = document.getElementById('manager-email').value.trim();
+  const wa    = document.getElementById('manager-wa').value.trim();
+  localStorage.setItem(MANAGER_KEY, JSON.stringify({ email, wa }));
+  document.getElementById('manager-saved-badge').style.display = 'block';
+  setTimeout(() => document.getElementById('manager-saved-badge').style.display = 'none', 2500);
+  toast('💾 Impostazioni manager salvate');
+  applyManagerContact();
+}
+
+function applyManagerContact() {
+  const m = loadManagerSettings();
+  const block = document.getElementById('manager-contact-block');
+  const link  = document.getElementById('manager-email-link');
+  if (m.email && block && link) {
+    block.style.display = 'flex';
+    link.textContent = m.email;
+    link.href = `mailto:${m.email}`;
+  } else if (block) {
+    block.style.display = 'none';
+  }
+}
+
+// ════════════════════════════════════
+//  OPTIONAL SECTION TOGGLE
+// ════════════════════════════════════
+function toggleOpt(btn) {
+  btn.classList.toggle('open');
+  const body = btn.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// ════════════════════════════════════
+//  PARTY MEMBERS
+// ════════════════════════════════════
+function addPartyMember(name='', surname='') {
+  const list = document.getElementById('party-members-list');
+  const idx = partyMembers.length;
+  partyMembers.push({ name, surname });
+
+  const row = document.createElement('div');
+  row.className = 'party-member-row';
+  row.id = `member-row-${idx}`;
+  row.innerHTML = `
+    <input type="text" placeholder="Nome" value="${name}" oninput="updateMember(${idx},'name',this.value)">
+    <input type="text" placeholder="Cognome" value="${surname}" oninput="updateMember(${idx},'surname',this.value)">
+    <button class="remove-member-btn" onclick="removePartyMember(${idx})" title="Rimuovi">✕</button>
+  `;
+  list.appendChild(row);
+  updatePartySummary();
+}
+
+function updateMember(idx, field, val) {
+  if (partyMembers[idx]) partyMembers[idx][field] = val;
+  updatePartySummary();
+}
+
+function removePartyMember(idx) {
+  partyMembers.splice(idx, 1);
+  renderPartyList();
+}
+
+function renderPartyList() {
+  const list = document.getElementById('party-members-list');
+  list.innerHTML = '';
+  const saved = [...partyMembers];
+  partyMembers = [];
+  saved.forEach(m => addPartyMember(m.name, m.surname));
+}
+
+function updatePartySummary() {
+  const summary = document.getElementById('party-summary');
+  const valid = partyMembers.filter(m => m.name.trim());
+  if (valid.length === 0) { summary.style.display = 'none'; return; }
+  summary.style.display = 'block';
+  const total = valid.length + 1; // capogruppo + partecipanti
+  summary.innerHTML = `👥 Gruppo totale: <strong>${total} persone</strong> — Capogruppo + ${valid.length} ospiti`;
+}
+
+// ════════════════════════════════════
+//  FOOD TAGS
+// ════════════════════════════════════
+function toggleFoodTag(el, tag) {
+  if (selectedFoodTags.has(tag)) {
+    selectedFoodTags.delete(tag);
+    el.classList.remove('selected');
+  } else {
+    selectedFoodTags.add(tag);
+    el.classList.add('selected');
+  }
+}
+
+// ════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════
+function showView(name) {
+  // Nascondi TUTTE le viste con ogni metodo possibile
+  ['login','admin','guide','join','group'].forEach(function(v) {
+    var el = document.getElementById('view-' + v);
+    if (!el) return;
+    el.style.cssText = el.style.cssText.replace(/display\s*:\s*[^;]+;?/gi, '');
+    el.style.display = 'none';
+    el.setAttribute('hidden', '');
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  
+  // Mostra quella giusta
+  var target = document.getElementById('view-' + name);
+  if (target) {
+    target.removeAttribute('hidden');
+    target.style.display = 'block';
+    target.style.visibility = 'visible';
+    target.style.opacity = '1';
+    target.classList.add('active');
+  }
+  var tab = document.getElementById('nav-' + name);
+  if (tab) tab.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// Gestione visibilità tab in base al ruolo (solo nasconde tab, non la navbar)
+function setNavForRole(role) {
+  const tabs = {
+    'nav-login': role === 'none',
+    'nav-admin': role === 'admin',
+    'nav-guide': role === 'guide',
+    'nav-join':  role === 'admin' || role === 'guide',
+    'nav-group': role === 'admin' || role === 'guide',
+  };
+  Object.entries(tabs).forEach(([id, show]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  });
+}
+
+// createSession rimossa — le sessioni le crea solo la guida (guideCreateSession)
+// clearForm rimossa — form admin non più presente
+
+
+// ════════════════════════════════════════════════════════
+//  ADMIN — TAB NAVIGATION
+// ════════════════════════════════════════════════════════
+function switchAdminTab(tab) {
+  ['sessions','blog','guides','settings'].forEach(t => {
+    document.getElementById(`apanel-${t}`).style.display = t === tab ? 'block' : 'none';
+    document.getElementById(`atab-${t}`)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'sessions') refreshAdminStats();
+  if (tab === 'blog')     renderBlogSessionSelect();
+  if (tab === 'guides')   { renderAdminGuidesList(); renderGuideSelect(); renderTourTypeSelect(); }
+}
+
+function refreshAdminStats() {
+  document.getElementById('stat-sessions').textContent = sessions.length;
+  document.getElementById('stat-photos').textContent   = sessions.reduce((a,s) => a + (s.photos?.length||0), 0);
+  document.getElementById('stat-guides').textContent   = loadGuides().length;
+  const blogCount = sessions.reduce((a,s) => a + (s.photos?.filter(p=>p.forBlog)?.length||0), 0);
+  document.getElementById('stat-blog').textContent     = blogCount;
+  renderAdminSessionsList();
+}
+
+function renderAdminSessionsList() {
+  const container = document.getElementById('admin-sessions-list');
+  if (!container) return;
+  if (!sessions.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📂</div><p>Nessuna sessione ancora.</p></div>`;
+    return;
+  }
+  container.innerHTML = [...sessions].reverse().map(s => {
+    const photoCount = s.photos?.length || 0;
+    const blogCount  = s.photos?.filter(p => p.forBlog)?.length || 0;
+    const date = s.date ? new Date(s.date).toLocaleDateString('it-IT') : '—';
+    const expiry = s.blogExpiry ? `⏱ Scade: ${new Date(s.blogExpiry).toLocaleDateString('it-IT')}` : '';
+    return `
+    <div style="padding:14px 16px;border-radius:12px;background:#eeeeee;border:1px solid #dddddd;margin-bottom:10px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:0.95rem;">${s.name}</div>
+          <div style="font-size:0.78rem;opacity:0.45;margin-top:3px;">
+            📅 ${date} · 🧭 ${s.guideName||'—'} · 📸 ${photoCount} foto
+            ${blogCount ? ` · 🌟 ${blogCount} nel blog` : ''}
+            ${expiry ? ` · ${expiry}` : ''}
+          </div>
+          <div style="font-size:0.72rem;color:#8cc63f;margin-top:3px;font-family:monospace;">${s.code}</div>
+        </div>
+        <button class="btn btn-outline" style="font-size:0.75rem;padding:5px 12px;color:#e07070;border-color:rgba(200,70,70,0.3);"
+          onclick="adminDeleteSession('${s.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function adminDeleteSession(sessionId) {
+  const s = sessions.find(s => String(s.id) === String(sessionId));
+  if (!s) return;
+  if (!confirm(`Eliminare la sessione "${s.name}" e tutte le sue foto?`)) return;
+  sessions.splice(sessions.indexOf(s), 1);
+  photos = photos.filter(p => String(p.sessionCode || p.sessionId) !== String(sessionId));
+  refreshAdminStats();
+  toast(`🗑️ Sessione "${s.name}" eliminata`);
+}
+
+function renderBlogSessionSelect() {
+  const sel = document.getElementById('blog-session-select');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Scegli una sessione —</option>' +
+    [...sessions].reverse().map(s =>
+      `<option value="${s.id}">${s.name} · ${s.guideName||''} · ${s.date||''}</option>`
+    ).join('');
+  if (cur) { sel.value = cur; onBlogSessionSelect(cur); }
+}
+
+function onBlogSessionSelect(sessionId) {
+  const expiryRow    = document.getElementById('blog-expiry-row');
+  const approvalCard = document.getElementById('blog-approval-card');
+  if (!sessionId) {
+    expiryRow.style.display = 'none';
+    approvalCard.style.display = 'none';
+    return;
+  }
+  const session = sessions.find(s => String(s.id) === String(sessionId));
+  if (!session) return;
+  activeSession = session;
+  expiryRow.style.display = 'block';
+  approvalCard.style.display = 'block';
+  document.getElementById('blog-expiry-date').value = session.blogExpiry || '';
+  updateBlogSelectedCount(session);
+  renderApprovalPanel(session);
+}
+
+function saveBlogExpiry() {
+  const sessionId = document.getElementById('blog-session-select').value;
+  const session = sessions.find(s => String(s.id) === String(sessionId));
+  if (!session) { toast('⚠️ Seleziona prima una sessione', 'warn'); return; }
+  const date = document.getElementById('blog-expiry-date').value;
+  if (!date) { toast('⚠️ Inserisci una data di scadenza', 'warn'); return; }
+  session.blogExpiry = date;
+  refreshAdminStats();
+  toast(`📅 Scadenza impostata: ${new Date(date).toLocaleDateString('it-IT')}`);
+}
+
+function updateBlogSelectedCount(session) {
+  const count = session?.photos?.filter(p => p.forBlog)?.length || 0;
+  const el = document.getElementById('blog-selected-count');
+  if (el) el.textContent = `${count} foto selezionate per il blog`;
+}
+
+function renderAdminGuidesList() {
+  const container = document.getElementById('admin-guides-list');
+  if (!container) return;
+  const guides = loadGuides();
+  if (!guides.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🧭</div><p>Nessuna guida ancora.</p></div>`;
+    return;
+  }
+  container.innerHTML = guides.map(g => {
+    const mySessions = sessions.filter(s => s.guideName === g.name).length;
+    const avatarHtml = g.avatar
+      ? `<img src="${g.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+      : `<span style="font-size:1.1rem;font-weight:800;color:#111111;">${g.name.charAt(0)}</span>`;
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#eeeeee;border:1px solid #dddddd;border-radius:10px;margin-bottom:8px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:#8cc63f;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;">${avatarHtml}</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:0.9rem;">${g.name}</div>
+        <div style="font-size:0.75rem;opacity:0.45;">${g.phone||'—'} · ${mySessions} sessioni</div>
+      </div>
+      <button class="btn btn-outline" style="font-size:0.75rem;padding:5px 10px;" onclick="adminEditGuide('${g.name}')">✏️</button>
+    </div>`;
+  }).join('');
+}
+
+function adminEditGuide(name) {
+  const g = loadGuides().find(g => g.name === name);
+  if (!g) return;
+  document.getElementById('guide-name').value  = g.name;
+  document.getElementById('guide-phone').value = g.phone || '';
+  document.getElementById('guide-select').value = `${g.name}||${g.phone||''}`;
+  toast(`✏️ Modifica guida: ${name}`);
+}
+
+function renderSessionsList() {
+  // Reindirizza al nuovo pannello admin
+  refreshAdminStats?.();
+}
+
+function openSessionAdmin(id) {
+  activeSession = sessions.find(s => s.id == id);
+  if (!activeSession) return;
+  // Apri tab blog e seleziona la sessione
+  switchAdminTab('blog');
+  const sel = document.getElementById('blog-session-select');
+  if (sel) { sel.value = activeSession.id; onBlogSessionSelect(String(activeSession.id)); }
+  toast(`📂 Sessione "${activeSession.name}" aperta`);
+}
+
+function renderApprovalPanel(session) {
+  const grid = document.getElementById('approval-grid');
+  if (!grid) return;
+  const allPhotos = photos.filter(p => (p.sessionCode || p.sessionId) == (session.code || session.id));
+  if (allPhotos.length === 0) {
+    grid.innerHTML = '<p style="color:rgba(50,50,50,0.4); font-size:0.85rem;">Nessuna foto ancora caricata in questa sessione.</p>';
+    return;
+  }
+  grid.innerHTML = allPhotos.map(p => `
+    <div class="approval-item" id="approval-${p.id}">
+      <img src="${p.src}" onclick="openLightbox('${p.src}')">
+      <div class="approval-footer">
+        <button class="approve-btn" onclick="approvePhoto('${p.id}')">✅</button>
+        <button class="reject-btn" onclick="rejectPhoto('${p.id}')">❌</button>
+        <button class="blog-btn ${selectedForBlog.has(p.id) ? 'selected' : ''}" id="blogbtn-${p.id}" onclick="toggleBlogAdmin('${p.id}')">⭐</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function approvePhoto(id) {
+  const p = photos.find(ph => ph.id == id);
+  if (p) { p.approved = true; toast('✅ Foto approvata'); renderPhotoGrid(); renderApprovalPanel(activeSession || sessions[0]); }
+}
+
+function rejectPhoto(id) {
+  photos = photos.filter(ph => ph.id != id);
+  selectedForBlog.delete(id);
+  toast('🗑️ Foto rimossa');
+  renderPhotoGrid();
+  renderApprovalPanel(activeSession || sessions[0]);
+}
+
+function approveAll() {
+  photos.forEach(p => p.approved = true);
+  toast('✅ Tutte le foto approvate');
+  renderPhotoGrid();
+  renderApprovalPanel(activeSession || sessions[0]);
+}
+
+function toggleBlogAdmin(id) {
+  if (selectedForBlog.has(id)) {
+    selectedForBlog.delete(id);
+    document.getElementById('blogbtn-' + id)?.classList.remove('selected');
+    toast('⭐ Rimossa dalla selezione blog');
+  } else {
+    selectedForBlog.add(id);
+    document.getElementById('blogbtn-' + id)?.classList.add('selected');
+    toast('⭐ Aggiunta alla selezione blog');
+  }
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrcode canvas');
+  if (!canvas) { toast('⚠️ QR non ancora generato'); return; }
+  const link = document.createElement('a');
+  link.download = 'qr-sessione.png';
+  link.href = canvas.toDataURL();
+  link.click();
+  toast('⬇️ QR scaricato!');
+}
+
+function copyLink() {
+  const el = document.getElementById('session-code-display');
+  const code = el ? el.textContent : document.getElementById('guide-session-code-display')?.textContent;
+  if (!code) return;
+  const session = sessions.find(s => s.code === code);
+  const _lp = new URLSearchParams({ session: code });
+  if (session?.guideName)  _lp.set('guide', session.guideName);
+  if (session?.guidePhone) _lp.set('guidePhone', session.guidePhone);
+  if (session?.tourType)   _lp.set('tour', session.tourType);
+  if (session?.entryMode === 'group') _lp.set('entry', 'group');
+  const link = `${getBaseUrl()}?${_lp.toString()}`;
+  navigator.clipboard.writeText(link).then(() => toast('🔗 Link copiato negli appunti!'));
+}
+
+// ════════════════════════════════════
+//  JOIN SESSION
+// ════════════════════════════════════
+function joinSession() {
+  const username = document.getElementById('join-username').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  const gdpr = document.getElementById('gdpr-consent').checked;
+
+  if (!username) { toast('⚠️ Inserisci il tuo nome', 'warn'); return; }
+  if (!code) { toast('⚠️ Inserisci il codice sessione', 'warn'); return; }
+  if (!gdpr) { toast('⚠️ Devi accettare la Privacy Policy per continuare', 'warn'); return; }
+
+  // Controlla waiver se presente
+  const waiverBlock = document.getElementById('waiver-block');
+  if (waiverBlock.style.display !== 'none') {
+    const waiverConsent = document.getElementById('waiver-consent').checked;
+    if (!waiverConsent) { toast('⚠️ Devi accettare la liberatoria per partecipare', 'warn'); return; }
+  }
+
+  let session = sessions.find(s => s.code === code);
+  if (!session) {
+    // Sessione non nel localStorage (cliente su dispositivo diverso dall'admin)
+    // Recupera dati guida dall'URL se presenti
+    const _p = getUrlParams();
+    session = {
+      id: Date.now(),
+      name: `Sessione ${code}`,
+      desc: 'Condividi le tue foto con il gruppo!',
+      code,
+      photos: [],
+      status: 'active',
+      entryMode: _p.get('entry') || 'single',
+      foodIncluded: 'no',
+      guideName:  _p.get('guide')      || '',
+      guidePhone: _p.get('guidePhone') || '',
+      tourType:   _p.get('tour')       || ''
+    };
+    sessions.push(session);
+  }
+
+  // Cliente normale: non è admin né guida
+  isAdmin = false;
+  isGuide = false;
+  setNavForRole('client');
+
+  currentUser = { name: username, color: avatarColors[Math.floor(Math.random() * avatarColors.length)] };
+  activeSession = session;
+
+  // Imposta lingue sessione
+  sessionLangs = session.langs?.length ? session.langs : ['it', 'en'];
+  const langToApply = session.defaultLang || sessionLangs[0] || 'en';
+  currentLang = langToApply;
+
+  // Raccolta dati aggiuntivi
+  const foodOther = document.getElementById('food-other')?.value?.trim() || '';
+  currentUser.foodTags = [...selectedFoodTags];
+  currentUser.foodOther = foodOther;
+  currentUser.party = [...partyMembers.filter(m => m.name.trim())];
+  const totalParty = currentUser.party.length + 1;
+  memberCount = totalParty;
+
+  document.getElementById('active-session-name').textContent = session.name;
+  document.getElementById('member-count-badge').textContent = `👥 ${memberCount}`;
+
+  // Header: clienti vedono il loro header, admin/guida vedono l'header privilegiato
+  document.getElementById('session-header-privileged').style.display = isAdmin ? 'flex' : 'none';
+  document.getElementById('session-header-client').style.display = isAdmin ? 'none' : 'flex';
+  if (!isAdmin) updateClientHeader(session, memberCount);
+
+  if (isAdmin) document.getElementById('blog-section')?.style && (document.getElementById('blog-section').style.display = 'block');
+  else document.getElementById('blog-section')?.style && (document.getElementById('blog-section').style.display = 'none');
+
+  document.getElementById('guide-favorites-section').style.display = 'none'; // solo guida
+
+  buildSummaryCard(session, username, totalParty);
+  applyLang(langToApply);
+  showView('group');
+  toast(TRANSLATIONS[langToApply]?.welcome?.split('!')[0] + `! ${username}` || `👋 ${username}`);
+
+  // Salva stato in sessionStorage — sopravvive al refresh della pagina
+  sessionStorage.setItem('ps_active', JSON.stringify({
+    code: session.code,
+    username,
+    lang: langToApply,
+    role: 'client'
+  }));
+
+  // Avvia sincronizzazione Firebase in tempo reale
+  if (window._fbReady) {
+    startFirebaseSync(session.code);
+  } else {
+    document.addEventListener('firebase-ready', () => startFirebaseSync(session.code), { once: true });
+  }
+
+  // Invio WhatsApp automatico se configurato
+  if ((loadManagerSettings().wa || session.waNumber) && session.entryMode === 'group') {
+    setTimeout(() => {
+      const confirmed = confirm('📲 Vuoi inviare il riepilogo del gruppo via WhatsApp alla guida?');
+      if (confirmed) sendWhatsApp();
+    }, 800);
+  }
+
+}
+
+// ════════════════════════════════════
+//  ENTRA COME GUIDA (accesso rapido)
+// ════════════════════════════════════
+function enterAsGuide() {
+  // Prende l'ultima sessione creata
+  const session = sessions[sessions.length - 1];
+  if (!session) { toast('⚠️ Crea prima una sessione', 'warn'); return; }
+
+  const guideName = document.getElementById('guide-name').value.trim() || session.guideName || 'Guida';
+
+  isAdmin = false;
+  isGuide = true;
+  activeSession = session;
+  currentUser = {
+    name: guideName,
+    color: '#2a6b8a',
+    isGuide: true
+  };
+  memberCount = 1;
+  sessionLangs = session.langs?.length ? session.langs : ['it', 'en'];
+  currentLang = 'it'; // la guida usa sempre italiano
+
+  document.getElementById('active-session-name').textContent = session.name;
+  document.getElementById('member-count-badge').textContent = `👥 ${memberCount}`;
+  document.getElementById('guide-role-badge').style.display = 'inline-flex';
+
+  // Header privilegiato per la guida
+  document.getElementById('session-header-privileged').style.display = 'flex';
+  document.getElementById('session-header-client').style.display = 'none';
+
+  // Mostra pannello preferiti guida, nascondi blog
+  document.getElementById('blog-section')?.style && (document.getElementById('blog-section').style.display = 'none');
+  document.getElementById('guide-favorites-section').style.display = 'block';
+
+  applyLang('it');
+  buildSummaryCard(session, guideName, 1);
+  renderPhotoGrid();
+  showView('group');
+  toast(`🧭 Bentornata/o ${guideName}!`);
+}
+
+// ════════════════════════════════════
+//  GUIDE FAVORITES
+// ════════════════════════════════════
+function toggleGuideFavorite(id) {
+  if (!isGuide) return;
+  if (guideFavorites.has(id)) {
+    guideFavorites.delete(id);
+    toast('💙 Rimossa dai preferiti');
+  } else {
+    guideFavorites.add(id);
+    toast('💙 Aggiunta ai preferiti');
+  }
+  renderPhotoGrid();
+  updateGuideFavoritesPanel();
+}
+
+function updateGuideFavoritesPanel() {
+  document.getElementById('guide-fav-count').textContent = guideFavorites.size;
+  const preview = document.getElementById('guide-fav-preview');
+  preview.innerHTML = Array.from(guideFavorites).map(id => {
+    const p = photos.find(ph => ph.id === id);
+    return p ? `<img src="${p.src}" style="width:72px;height:72px;border-radius:8px;object-fit:cover;border:2px solid #8cc63f;">` : '';
+  }).join('');
+}
+
+function clearGuideFavorites() {
+  guideFavorites.clear();
+  renderPhotoGrid();
+  updateGuideFavoritesPanel();
+  toast('🗑️ Preferiti svuotati');
+}
+
+function exitSession() {
+  // Ferma Firebase listener
+  stopFirebaseSync();
+  setNavForRole('none');
+  sessionStorage.removeItem('ps_active');
+  // Reset ruoli
+  isGuide = false;
+  isAdmin = true;
+  currentUser = null;
+  activeSession = null;
+  guideFavorites.clear();
+  selectedForBlog.clear();
+  selectedPhotos.clear();
+  partyMembers = [];
+  selectedFoodTags.clear();
+  // Ripristina lang switcher con default
+  sessionLangs = ['it','en'];
+  applyLang('en');
+  // Nascondi pannelli e header
+  document.getElementById('guide-role-badge').style.display = 'none';
+  document.getElementById('guide-favorites-section').style.display = 'none';
+  document.getElementById('blog-section')?.style && (document.getElementById('blog-section').style.display = 'none');
+  document.getElementById('session-summary-card').style.display = 'none';
+  document.getElementById('session-header-privileged').style.display = 'none';
+  document.getElementById('session-header-client').style.display = 'flex';
+  const _gb = document.getElementById('client-guide-badge');
+  if (_gb) _gb.style.display = 'none';
+  const _cnt = document.getElementById('client-online-count');
+  if (_cnt) _cnt.textContent = '1';
+  showView('join');
+}
+
+// ════════════════════════════════════
+//  PREFILL JOIN FORM DA SESSIONE
+// ════════════════════════════════════
+function prefillJoinFromSession(session) {
+  if (!session) return;
+  try {
+    // Guida
+    if (session.guideName || session.guidePhone) {
+      const gb = document.getElementById('guide-info-block');
+      if (gb) gb.style.display = 'block';
+      const gn = document.getElementById('guide-display-name');
+      if (gn) gn.textContent = session.guideName || '—';
+      const gp = document.getElementById('guide-display-phone');
+      if (gp) gp.textContent = session.guidePhone || '—';
+      const tourEl = document.getElementById('guide-display-tour');
+      if (tourEl) tourEl.textContent = session.tourType ? `🗺️ ${session.tourType}` : '';
+    }
+
+    // Ingresso capogruppo
+    if (session.entryMode === 'group') {
+      const pb = document.getElementById('party-block');
+      if (pb) pb.style.display = 'block';
+      addPartyMember();
+    }
+
+    // Waiver
+    if (session.waiverText && !isAdmin) {
+      const wb = document.getElementById('waiver-block');
+      if (wb) wb.style.display = 'block';
+      const wt = document.getElementById('waiver-display-title');
+      if (wt) wt.textContent = session.waiverTitle || 'Liberatoria';
+      const wx = document.getElementById('waiver-display-text');
+      if (wx) wx.textContent = session.waiverText;
+    }
+  } catch(e) {
+    console.error('prefillJoinFromSession error:', e);
+  }
+}
+
+// ════════════════════════════════════
+//  SUMMARY CARD
+// ════════════════════════════════════
+function buildSummaryCard(session, username, total) {
+  const card = document.getElementById('session-summary-card');
+  const grid = document.getElementById('summary-grid-content');
+  const rows = [];
+
+  if (session.guideName) rows.push(`<div class="summary-item">Guida<strong>🧭 ${session.guideName}</strong></div>`);
+  if (session.guidePhone) rows.push(`<div class="summary-item">Contatto Guida<strong>📞 ${session.guidePhone}</strong></div>`);
+  if (session.tourType) rows.push(`<div class="summary-item">Tipo Tour<strong>🗺️ ${session.tourType}</strong></div>`);
+  rows.push(`<div class="summary-item">Partecipanti<strong>👥 ${total} person${total===1?'a':'e'}</strong></div>`);
+
+  const allTags = currentUser?.foodTags || [];
+  const otherFood = currentUser?.foodOther || '';
+  if (allTags.length > 0 || otherFood) {
+    const chips = [...allTags, ...(otherFood ? [otherFood] : [])].map(t => `<span class="intol-chip">${t}</span>`).join('');
+    rows.push(`<div class="summary-item" style="grid-column:1/-1;">Intolleranze<div class="intol-chips" style="margin-top:6px;">${chips}</div></div>`);
+  }
+
+  if (rows.length === 0) { card.style.display = 'none'; return; }
+  grid.innerHTML = rows.join('');
+  card.style.display = 'block';
+
+  if (loadManagerSettings().wa || session.waNumber) {
+    document.getElementById('wa-send-btn').style.display = 'inline-flex';
+  }
+}
+
+// ════════════════════════════════════
+//  WHATSAPP
+// ════════════════════════════════════
+function sendWhatsApp() {
+  if (!activeSession) return;
+  const s = activeSession;
+  const u = currentUser;
+  const total = u?.party?.length + 1 || memberCount;
+  const partyList = u?.party?.map(m => `  • ${m.name} ${m.surname}`.trim()).join('\n') || '';
+  const tags = u?.foodTags?.length ? u.foodTags.join(', ') : '—';
+  const otherFood = u?.foodOther || '—';
+
+  let msg = `📋 *RIEPILOGO GRUPPO*\n`;
+  msg += `━━━━━━━━━━━━━━━\n`;
+  if (s.guideName) msg += `🧭 *Guida:* ${s.guideName}\n`;
+  if (s.tourType)  msg += `🗺️ *Tour:* ${s.tourType}\n`;
+  msg += `📅 *Data:* ${s.date || 'da definire'}\n`;
+  msg += `👥 *Partecipanti totali:* ${total}\n`;
+  msg += `👤 *Capogruppo:* ${u?.name || '—'}\n`;
+  if (partyList) msg += `\n*Membri del gruppo:*\n${partyList}\n`;
+  if (s.foodIncluded === 'yes') {
+    msg += `\n🍽️ *Intolleranze/Preferenze:*\n  ${tags}\n`;
+    if (otherFood !== '—') msg += `  Altro: ${otherFood}\n`;
+  }
+  msg += `\n📍 *Sessione:* ${s.name}\n`;
+  msg += `🔑 *Codice:* ${s.code}`;
+
+  const managerWa = loadManagerSettings().wa || s.waNumber || '';
+  if (!managerWa) { toast('⚠️ Configura il numero WhatsApp del manager nelle impostazioni', 'warn'); return; }
+  const waNumber = managerWa.replace(/\D/g, '');
+  const encoded = encodeURIComponent(msg);
+  const waUrl = `https://wa.me/${waNumber}?text=${encoded}`;
+
+  window.open(waUrl, '_blank');
+  toast('💬 Apertura WhatsApp...');
+}
+
+// ════════════════════════════════════
+//  UPLOAD FOTO
+// ════════════════════════════════════
+
+
+
+// ════════════════════════════════════════════════════════
+//  FIREBASE — Sync foto in tempo reale
+// ════════════════════════════════════════════════════════
+let fbListener = null; // listener attivo per la sessione corrente
+
+function fbRef(path) {
+  if (!window._fb) return null;
+  return window._fb.ref(window._fb.db, path);
+}
+
+// Carica foto da Firebase e aggiorna la griglia in tempo reale
+function startFirebaseSync(sessionCode) {
+  stopFirebaseSync();
+  if (!window._fb || !sessionCode) return;
+  const { onValue, off } = window._fb;
+  const r = fbRef(`sessions/${sessionCode}/photos`);
+  if (!r) return;
+  fbListener = { ref: r };
+  onValue(r, snapshot => {
+    const data = snapshot.val();
+    if (!data) {
+      // Nessuna foto su Firebase — tieni quelle locali
+      renderPhotoGrid();
+      return;
+    }
+    // Converti oggetto Firebase in array
+    const fbPhotos = Object.entries(data).map(([fbKey, p]) => ({
+      ...p,
+      fbKey,
+      myReactions: new Set(p.myReactions || [])
+    }));
+    // Merge: aggiungi foto Firebase non ancora in locale
+    fbPhotos.forEach(fp => {
+      if (!photos.find(p => p.id === fp.id)) {
+        photos.push(fp);
+        if (activeSession) activeSession.photos = photos.filter(p => (p.sessionCode || p.sessionId) == (activeSession.code || activeSession.id));
+      }
+    });
+    renderPhotoGrid();
+  });
+}
+
+function stopFirebaseSync() {
+  if (fbListener && window._fb) {
+    window._fb.off(fbListener.ref);
+    fbListener = null;
+  }
+}
+
+// Salva una foto su Firebase
+function savePhotoToFirebase(photo, sessionCode) {
+  if (!window._fb || !sessionCode) return;
+  const { push, ref, db, set } = window._fb;
+  // Comprimi la foto prima di salvarla (max 800px, qualità 0.7)
+  compressImageForFirebase(photo.src, compressed => {
+    const photoData = {
+      id:          photo.id,
+      src:         compressed,
+      author:      photo.author,
+      sessionId:   photo.sessionId,
+      sessionCode: sessionCode,
+      timestamp:   photo.timestamp || Date.now(),
+      approved:    photo.approved !== false,
+      reactions:   photo.reactions || {},
+      myReactions: [],
+      comment:     photo.comment || ''
+    };
+    const r = window._fb.ref(window._fb.db, `sessions/${sessionCode}/photos`);
+    push(r, photoData);
+  });
+}
+
+// Comprimi immagine a max 800px, qualità 0.7
+function compressImageForFirebase(src, callback) {
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 800;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+      else       { w = Math.round(w * MAX / h); h = MAX; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.onerror = () => callback(src); // fallback: originale
+  img.src = src;
+}
+
+// Aggiorna reazione su Firebase
+function updateReactionFirebase(photoId, sessionCode, reactions) {
+  if (!window._fb || !sessionCode) return;
+  const { ref, db, update } = window._fb;
+  // Trova fbKey della foto
+  const r = window._fb.ref(window._fb.db, `sessions/${sessionCode}/photos`);
+  window._fb.onValue(r, snapshot => {
+    const data = snapshot.val() || {};
+    const entry = Object.entries(data).find(([,p]) => p.id === photoId);
+    if (entry) {
+      const fbKey = entry[0];
+      const photoRef = window._fb.ref(window._fb.db, `sessions/${sessionCode}/photos/${fbKey}`);
+      window._fb.update(photoRef, { reactions });
+    }
+    window._fb.off(r); // leggi una volta sola
+  }, { onlyOnce: true });
+}
+
+// Fallback localStorage per quando Firebase non è disponibile
+function savePhotosToStorage(session) {
+  if (!session) return;
+  // Se Firebase è pronto, usa quello (già fatto in handleFileSelect)
+  // Salva anche in localStorage come backup
+  try {
+    const serializable = photos
+      .filter(p => (p.sessionCode || p.sessionId) == (session.code || session.id))
+      .map(p => ({ ...p, myReactions: [...(p.myReactions || [])] }));
+    localStorage.setItem(`ps_photos_${session.code}`, JSON.stringify(serializable));
+  } catch(e) {}
+}
+
+function loadPhotosFromStorage(code) {
+  try {
+    const raw = localStorage.getItem(`ps_photos_${code}`);
+    if (!raw) return [];
+    return JSON.parse(raw).map(p => ({ ...p, myReactions: new Set(p.myReactions || []) }));
+  } catch(e) { return []; }
+}
+
+function clearPhotosFromStorage(code) {
+  if (code) localStorage.removeItem(`ps_photos_${code}`);
+}
+
+function handleFileSelect(e) {
+  handleFiles(e.target.files);
+}
+
+function handleFiles(files) {
+  if (!currentUser) { toast('⚠️ Entra prima in una sessione', 'warn'); return; }
+
+  Array.from(files).forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const photo = {
+        id: 'p-' + Date.now() + Math.random(),
+        src: e.target.result,
+        author: currentUser.name,
+        authorColor: currentUser.color,
+        sessionId: activeSession?.id,
+        sessionCode: activeSession?.code,
+        time: new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }),
+        reactions: { '❤️': 0, '😍': 0, '🔥': 0, '👏': 0 },
+        myReactions: new Set(),
+        comments: [],
+        approved: true // tutte le foto sono visibili a tutti i partecipanti
+      };
+      photos.push(photo);
+      if (activeSession) activeSession.photos = photos.filter(p => (p.sessionCode || p.sessionId) == (activeSession.code || activeSession.id));
+      savePhotosToStorage(activeSession);  // backup localStorage
+      // Salva su Firebase (sincronizza con tutti i dispositivi)
+      if (window._fbReady && activeSession) {
+        savePhotoToFirebase(photo, activeSession.code);
+      }
+      renderPhotoGrid();
+      renderApprovalPanel(activeSession || sessions[sessions.length - 1]);
+      renderSessionsList();
+      toast(`📸 Foto caricata da ${currentUser.name}!`);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ════════════════════════════════════
+//  RENDER GALLERY
+// ════════════════════════════════════
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  const sessionPhotos = photos.filter(p =>
+    (p.sessionCode || p.sessionId) == (activeSession?.code || activeSession?.id) && (p.approved || p.author === currentUser?.name)
+  );
+
+  if (sessionPhotos.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🌄</div><p>${TRANSLATIONS[currentLang]?.emptyPhotos || 'Nessuna foto ancora.'}</p></div>`;
+    updateBlogSection();
+    return;
+  }
+
+  grid.innerHTML = sessionPhotos.map(p => `
+    <div class="photo-card ${selectedForBlog.has(p.id) ? 'selected-for-blog' : ''} ${guideFavorites.has(p.id) ? 'guide-fav' : ''} ${selectedPhotos.has(p.id) ? 'photo-selected' : ''}" id="card-${p.id}">
+      <div class="photo-img-wrap" onclick="openLightbox('${p.src}')">
+        <img src="${p.src}" alt="Foto di ${p.author}" loading="lazy">
+        <!-- Checkbox selezione multipla -->
+        <div class="photo-select-cb" onclick="event.stopPropagation(); togglePhotoSelect('${p.id}')">✓</div>
+        <div class="photo-overlay photo-actions-overlay">
+          <button class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px;" onclick="event.stopPropagation(); downloadPhoto('${p.id}')">${TRANSLATIONS[currentLang]?.downloadBtn || '⬇️ Download'}</button>
+          ${isGuide ? `<button class="btn" style="font-size:0.75rem;padding:6px 12px;background:${guideFavorites.has(p.id)?'#2a6b8a':'rgba(255,255,255,0.9)'};color:${guideFavorites.has(p.id)?'white':'#2a6b8a'};" onclick="event.stopPropagation(); toggleGuideFavorite('${p.id}')">💙 Preferita</button>` : ''}
+        </div>
+        ${isGuide ? `<div class="select-blog-toggle ${guideFavorites.has(p.id) ? 'selected' : ''}" style="background:${guideFavorites.has(p.id)?'#2a6b8a':'white'};border-color:${guideFavorites.has(p.id)?'#2a6b8a':'#dddddd'};" onclick="event.stopPropagation(); toggleGuideFavorite('${p.id}')">💙</div>` : ''}
+      </div>
+      <div class="photo-body">
+        <div class="photo-meta">
+          <div class="photo-author">
+            <div class="avatar" style="background:${p.authorColor}">${p.author.charAt(0)}</div>
+            ${p.author}
+          </div>
+          <span style="font-size:0.75rem; color:rgba(50,50,50,0.4);">${p.time}</span>
+        </div>
+        <div class="reaction-row">
+          ${Object.entries(p.reactions).map(([emoji, count]) => `
+            <button class="reaction-btn ${p.myReactions?.has(emoji) ? 'reacted' : ''}" onclick="react('${p.id}','${emoji}')">
+              ${emoji} <span>${count > 0 ? count : ''}</span>
+            </button>
+          `).join('')}
+        </div>
+        <div class="comments-section">
+          <div id="comments-${p.id}">
+            ${renderComments(p)}
+          </div>
+          <div class="comment-input-row">
+            <input type="text" id="comment-input-${p.id}" placeholder="${TRANSLATIONS[currentLang]?.commentPlaceholder || 'Scrivi un commento...'}" onkeydown="if(event.key==='Enter') addComment('${p.id}')">
+            <button onclick="addComment('${p.id}')">→</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  updateBlogSection();
+}
+
+function renderComments(photo) {
+  if (!photo.comments.length) return '';
+  return photo.comments.map(c => {
+    // Build translation lines for all OTHER active session langs
+    const otherLangs = sessionLangs.filter(l => l !== (c.lang || 'it'));
+    const translationsHtml = otherLangs.length ? `
+      <div class="comment-translations">
+        ${otherLangs.map(l => {
+          const T = TRANSLATIONS[l];
+          const translated = staticTranslate(c.text, l);
+          if (translated === c.text) return ''; // no translation available, skip
+          return `<div class="comment-translation"><span class="lang-flag">${T.flag}</span><span>${translated}</span></div>`;
+        }).filter(Boolean).join('')}
+      </div>` : '';
+
+    return `
+    <div class="comment">
+      <div class="avatar" style="background:${c.authorColor}; width:28px; height:28px; font-size:0.75rem; flex-shrink:0; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:white; font-weight:700;">${c.author.charAt(0)}</div>
+      <div class="comment-bubble">
+        <div class="comment-author">${c.author}</div>
+        <div class="comment-text">${c.text}</div>
+        ${translationsHtml}
+        <div class="comment-time">${c.time}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════
+//  REACTIONS & COMMENTS
+// ════════════════════════════════════
+function react(photoId, emoji) {
+  const photo = photos.find(p => p.id === photoId);
+  if (!photo || !currentUser) return;
+  if (photo.myReactions.has(emoji)) {
+    photo.myReactions.delete(emoji);
+    photo.reactions[emoji] = Math.max(0, photo.reactions[emoji] - 1);
+  } else {
+    photo.myReactions.add(emoji);
+    photo.reactions[emoji]++;
+  }
+  renderPhotoGrid();
+  // Sincronizza reazioni su Firebase
+  if (window._fbReady && activeSession) {
+    updateReactionFirebase(photoId, activeSession.code, photo.reactions);
+  }
+}
+
+function addComment(photoId) {
+  const input = document.getElementById(`comment-input-${photoId}`);
+  const text = input?.value?.trim();
+  if (!text || !currentUser) return;
+
+  const photo = photos.find(p => p.id === photoId);
+  if (!photo) return;
+
+  photo.comments.push({
+    author: currentUser.name,
+    authorColor: currentUser.color,
+    text,
+    lang: currentLang,
+    time: new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })
+  });
+
+  input.value = '';
+  const container = document.getElementById(`comments-${photoId}`);
+  if (container) container.innerHTML = renderComments(photo);
+  container?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ════════════════════════════════════
+//  DOWNLOAD FOTO
+// ════════════════════════════════════
+function togglePhotoSelect(photoId) {
+  if (selectedPhotos.has(photoId)) {
+    selectedPhotos.delete(photoId);
+  } else {
+    selectedPhotos.add(photoId);
+  }
+  updateMultiSelectBar();
+  renderPhotoGrid();
+}
+
+function updateMultiSelectBar() {
+  const bar = document.getElementById('multi-select-bar');
+  const count = selectedPhotos.size;
+  if (count > 0) {
+    bar.style.display = 'flex';
+    document.getElementById('multi-select-count').textContent =
+      count === 1 ? '1 foto selezionata' : `${count} foto selezionate`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function selectAllPhotos() {
+  const sessionPhotos = photos.filter(p =>
+    (p.sessionCode || p.sessionId) == (activeSession?.code || activeSession?.id) && (p.approved || p.author === currentUser?.name)
+  );
+  sessionPhotos.forEach(p => selectedPhotos.add(p.id));
+  updateMultiSelectBar();
+  renderPhotoGrid();
+}
+
+function clearPhotoSelection() {
+  selectedPhotos.clear();
+  updateMultiSelectBar();
+  renderPhotoGrid();
+}
+
+function downloadSelectedPhotos() {
+  if (!selectedPhotos.size) return;
+  const toDownload = photos.filter(p => selectedPhotos.has(p.id));
+  toDownload.forEach((photo, i) => {
+    setTimeout(() => {
+      const link = document.createElement('a');
+      link.href = photo.src;
+      link.download = `foto-${photo.author.replace(/\s/g,'_')}-${i+1}.jpg`;
+      link.click();
+    }, i * 350);
+  });
+  toast(`⬇️ Download di ${toDownload.length} foto avviato!`);
+  clearPhotoSelection();
+}
+
+function downloadPhoto(photoId) {
+  const photo = photos.find(p => p.id === photoId);
+  if (!photo) return;
+  const link = document.createElement('a');
+  link.href = photo.src;
+  link.download = `photo-${photo.author.replace(/\s/g,'_')}-${Date.now()}.jpg`;
+  link.click();
+  toast('⬇️ Download iniziato!');
+}
+
+// ════════════════════════════════════
+//  BLOG SELECTION
+// ════════════════════════════════════
+function toggleBlogSelect(id) {
+  if (!isAdmin) return;
+  const photo = photos.find(p => p.id === id);
+  if (!photo) return;
+  if (selectedForBlog.has(id)) {
+    selectedForBlog.delete(id);
+    photo.forBlog = false;
+    toast('⭐ Rimossa dalla selezione blog');
+  } else {
+    selectedForBlog.add(id);
+    photo.forBlog = true;
+    toast('⭐ Aggiunta alla selezione blog');
+  }
+  updateBlogSelectedCount(activeSession);
+  renderPhotoGrid();
+}
+
+function updateBlogSection() {
+  if (!isAdmin) return;
+  const _sc = document.getElementById('selected-count'); if (_sc) _sc.textContent = selectedForBlog.size;
+  const previewGrid = document.getElementById('blog-preview-grid'); if (!previewGrid) return;
+  previewGrid.innerHTML = Array.from(selectedForBlog).map(id => {
+    const p = photos.find(ph => ph.id === id);
+    return p ? `<img class="blog-thumb" src="${p.src}" alt="">` : '';
+  }).join('');
+}
+
+function clearBlogSelection() {
+  selectedForBlog.clear();
+  renderPhotoGrid();
+  toast('🗑️ Selezione blog svuotata');
+}
+
+function publishToBlog() {
+  if (selectedForBlog.size === 0) { toast('⚠️ Seleziona almeno una foto per il blog', 'warn'); return; }
+  const thumbsHtml = Array.from(selectedForBlog).map(id => {
+    const p = photos.find(ph => ph.id === id);
+    return p ? `<img src="${p.src}" style="width:70px;height:70px;border-radius:8px;object-fit:cover;border:2px solid #f5a623;">` : '';
+  }).join('');
+  document.getElementById('blog-published-thumbs').innerHTML = thumbsHtml;
+  const caption = document.getElementById('blog-text')?.value || document.getElementById('blog-caption')?.value || '';
+  if (caption) console.log('Blog caption:', caption);
+  openModal('modal-blog');
+  updateBlogSelectedCount(activeSession);
+  refreshAdminStats?.();
+  selectedForBlog.clear();
+  renderPhotoGrid();
+}
+
+// ════════════════════════════════════
+//  SIMULAZIONE ALTRI UTENTI
+// ════════════════════════════════════════════════════════
+//  SISTEMA LOGIN — Guide & Admin
+// ════════════════════════════════════════════════════════
+const ADMIN_PIN_KEY  = 'photosession_admin_pin';
+const DEFAULT_ADMIN_PIN = '0000';
+let currentRole  = null;  // null | 'admin' | 'guide'
+let loggedGuide  = null;  // oggetto guida loggata
+
+function loadAdminPin() {
+  return localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
+}
+
+function switchLoginTab(tab) {
+  const isGuide = tab === 'guide';
+  document.getElementById('login-form-guide').style.display = isGuide ? 'block' : 'none';
+  document.getElementById('login-form-admin').style.display = isGuide ? 'none' : 'block';
+  document.getElementById('login-tab-guide').style.background  = isGuide ? '#8cc63f' : 'transparent';
+  document.getElementById('login-tab-guide').style.color       = isGuide ? '#111111' : '#555555';
+  document.getElementById('login-tab-guide').style.borderColor = isGuide ? '#8cc63f' : '#cccccc';
+  document.getElementById('login-tab-admin').style.background  = isGuide ? 'transparent' : '#8cc63f';
+  document.getElementById('login-tab-admin').style.color       = isGuide ? '#555555' : '#111111';
+  document.getElementById('login-tab-admin').style.borderColor = isGuide ? '#dddddd' : '#8cc63f';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+function onLoginGuideSelect(val) {
+  const badge = document.getElementById('login-guide-avatar');
+  if (!val) { badge.style.display = 'none'; return; }
+  const [name, phone] = val.split('||');
+  const guide = loadGuides().find(g => g.name === name);
+  if (!guide) return;
+  badge.style.display = 'flex';
+  document.getElementById('login-guide-name-display').textContent = name;
+  document.getElementById('login-guide-phone-display').textContent = phone || '';
+  // Avatar
+  const avatarEl = document.getElementById('login-guide-avatar-img');
+  if (guide.avatar) {
+    avatarEl.innerHTML = `<img src="${guide.avatar}" style="width:100%;height:100%;object-fit:cover;">`;
+  } else {
+    avatarEl.textContent = name.charAt(0).toUpperCase();
+    avatarEl.style.fontSize = '1.5rem';
+  }
+}
+
+function toggleNewGuideForm() {
+  const form = document.getElementById('new-guide-form');
+  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function registerNewGuide() {
+  const name  = document.getElementById('new-guide-name-input')?.value.trim();
+  const phone = document.getElementById('new-guide-phone-input')?.value.trim() || '';
+  const pin   = document.getElementById('new-guide-pin-input')?.value.trim();
+  if (!name)          { toast('⚠️ Inserisci il tuo nome', 'warn'); return; }
+  if (!pin || pin.length < 4) { toast('⚠️ Il PIN deve avere almeno 4 cifre', 'warn'); return; }
+  const guides = loadGuides();
+  // Aggiorna se esiste già, altrimenti aggiungi
+  const existing = guides.find(g => g.name === name);
+  if (existing) {
+    existing.phone = phone || existing.phone;
+    existing.pin   = pin;
+  } else {
+    guides.push({ name, phone, pin });
+  }
+  saveGuides(guides);
+  renderLoginGuideSelect();
+  renderGuideSelect();
+  // Seleziona automaticamente
+  const loginSel = document.getElementById('login-guide-select');
+  if (loginSel) { loginSel.value = `${name}||${phone}`; onLoginGuideSelect(`${name}||${phone}`); }
+  // Precompila il PIN
+  const pinInput = document.getElementById('login-guide-pin');
+  if (pinInput) pinInput.value = pin;
+  // Chiudi il form e pulisci
+  document.getElementById('new-guide-form').style.display = 'none';
+  document.getElementById('new-guide-name-input').value  = '';
+  document.getElementById('new-guide-phone-input').value = '';
+  document.getElementById('new-guide-pin-input').value   = '';
+  toast(`✅ "${name}" registrata — ora puoi accedere!`);
+}
+
+function renderLoginGuideSelect() {
+  const sel = document.getElementById('login-guide-select');
+  if (!sel) return;
+  const guides = loadGuides();
+  sel.innerHTML = '<option value="">— Seleziona —</option>' +
+    guides.map(g => `<option value="${g.name}||${g.phone||''}">${g.name}</option>`).join('');
+}
+
+function togglePinVisibility(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (inp.type === 'password') { inp.type = 'text';  btn.textContent = '🙈'; }
+  else                         { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function doLogin() {
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  // Capisce quale tab è attiva
+  const isAdminForm = document.getElementById('login-form-admin').style.display !== 'none';
+  if (isAdminForm) {
+    const pin = document.getElementById('login-admin-pin').value;
+    if (pin === loadAdminPin()) {
+      currentRole = 'admin';
+      isAdmin = true;
+      setNavForRole('admin');
+      showView('admin');
+      refreshAdminStats();
+      toast('✅ Benvenuto, Amministratore!');
+    } else {
+      errEl.style.display = 'block';
+      document.getElementById('login-admin-pin').value = '';
+    }
+  } else {
+    const selVal = document.getElementById('login-guide-select').value;
+    if (!selVal) { toast('⚠️ Seleziona prima la tua guida', 'warn'); return; }
+    const [name] = selVal.split('||');
+    const guide = loadGuides().find(g => g.name === name);
+    if (!guide) { toast('⚠️ Guida non trovata', 'warn'); return; }
+    const pin = document.getElementById('login-guide-pin').value;
+    const guidePin = guide.pin || '1234';
+    if (pin === guidePin) {
+      currentRole = 'guide';
+      loggedGuide = guide;
+      setNavForRole('guide');
+      loadGuideProfile();
+      renderGuideSessions();
+      renderGuideTourSelect();
+      showView('guide');
+      toast(`🧭 Benvenuta, ${guide.name}!`);
+    } else {
+      errEl.style.display = 'block';
+      document.getElementById('login-guide-pin').value = '';
+    }
+  }
+}
+
+function logoutGuide() {
+  currentRole = null;
+  loggedGuide = null;
+  isAdmin = false;
+  setNavForRole('none');
+  document.getElementById('login-guide-pin').value = '';
+  document.getElementById('login-admin-pin').value = '';
+  document.getElementById('login-guide-select').value = '';
+  document.getElementById('login-guide-avatar').style.display = 'none';
+  showView('login');
+  toast('👋 Disconnesso');
+}
+
+// ════════════════════════════════════════════════════════
+//  PROFILO GUIDA
+// ════════════════════════════════════════════════════════
+function loadGuideProfile() {
+  if (!loggedGuide) return;
+  document.getElementById('guide-profile-name').value  = loggedGuide.name  || '';
+  document.getElementById('guide-profile-phone').value = loggedGuide.phone || '';
+  document.getElementById('guide-profile-name-display').textContent  = loggedGuide.name  || '';
+  document.getElementById('guide-profile-phone-display').textContent = loggedGuide.phone || '';
+  const avatarContent = document.getElementById('guide-profile-avatar-content');
+  if (loggedGuide.avatar) {
+    avatarContent.innerHTML = `<img src="${loggedGuide.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  } else {
+    avatarContent.textContent = (loggedGuide.name || '?').charAt(0).toUpperCase();
+  }
+}
+
+function saveGuideProfile() {
+  if (!loggedGuide) return;
+  const newName  = document.getElementById('guide-profile-name').value.trim();
+  const newPhone = document.getElementById('guide-profile-phone').value.trim();
+  const newPin   = document.getElementById('guide-profile-pin').value.trim();
+  if (!newName) { toast('⚠️ Il nome non può essere vuoto', 'warn'); return; }
+  const guides = loadGuides();
+  const idx = guides.findIndex(g => g.name === loggedGuide.name);
+  if (idx === -1) { toast('⚠️ Guida non trovata', 'warn'); return; }
+  const oldName = guides[idx].name;
+  guides[idx].name  = newName;
+  guides[idx].phone = newPhone;
+  if (newPin) guides[idx].pin = newPin;
+  saveGuides(guides);
+  loggedGuide = guides[idx];
+  document.getElementById('guide-profile-name-display').textContent  = newName;
+  document.getElementById('guide-profile-phone-display').textContent = newPhone;
+  document.getElementById('guide-profile-pin').value = '';
+  // Aggiorna sessions se il nome è cambiato
+  if (oldName !== newName) {
+    sessions.forEach(s => { if (s.guideName === oldName) s.guideName = newName; });
+  }
+  renderGuideSessions();
+  renderGuideSelect();
+  toast('✅ Profilo aggiornato!');
+}
+
+function uploadGuideAvatar(input) {
+  if (!input.files?.[0] || !loggedGuide) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    const guides = loadGuides();
+    const idx = guides.findIndex(g => g.name === loggedGuide.name);
+    if (idx === -1) return;
+    guides[idx].avatar = dataUrl;
+    saveGuides(guides);
+    loggedGuide = guides[idx];
+    const avatarContent = document.getElementById('guide-profile-avatar-content');
+    avatarContent.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    toast('📷 Foto profilo aggiornata!');
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+// ════════════════════════════════════════════════════════
+//  SESSIONI GUIDA
+// ════════════════════════════════════════════════════════
+function renderGuideSessions() {
+  const container = document.getElementById('guide-sessions-list');
+  if (!container || !loggedGuide) return;
+  const mySessions = sessions.filter(s => s.guideName === loggedGuide.name);
+  if (!mySessions.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><p>Nessuna sessione ancora.<br>Creane una qui a sinistra!</p></div>`;
+    return;
+  }
+  container.innerHTML = mySessions.map(s => {
+    const count = s.photos?.length || 0;
+    const date  = s.date ? new Date(s.date).toLocaleDateString('it-IT') : '—';
+    return `
+    <div class="session-item" style="margin-bottom:12px;padding:14px 16px;border-radius:12px;background:#eeeeee;border:1px solid #dddddd;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:0.95rem;">${s.name}</div>
+          <div style="font-size:0.78rem;opacity:0.45;margin-top:2px;">📅 ${date} · 📸 ${count} foto · 🔑 ${s.code}</div>
+          ${s.tourType ? `<div style="font-size:0.75rem;color:#8cc63f;margin-top:3px;">🗺️ ${s.tourType}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="font-size:0.75rem;padding:6px 12px;" onclick="showGuideSessionQR('${s.code}')">📱 QR</button>
+          ${count > 0 ? `<button class="btn btn-secondary" style="font-size:0.75rem;padding:6px 12px;" onclick="downloadSessionPhotos('${s.id}')">⬇️ Foto</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function guideAddTourType() {
+  const input = document.getElementById('guide-new-tour-type');
+  const val = input?.value?.trim();
+  if (!val) { toast('⚠️ Inserisci il nome del tour', 'warn'); return; }
+  const types = loadTourTypes();
+  if (!types.includes(val)) {
+    types.push(val);
+    saveTourTypes(types);
+    toast(`💾 "${val}" aggiunto`);
+  }
+  renderGuideTourSelect();
+  document.getElementById('guide-session-tour').value = val;
+  if (input) input.value = '';
+}
+
+function renderGuideTourSelect() {
+  const sel = document.getElementById('guide-session-tour');
+  if (!sel) return;
+  const types = loadTourTypes();
+  sel.innerHTML = '<option value="">— Seleziona tipo tour —</option>' +
+    types.map(t => `<option value="${t}">${t}</option>`).join('');
+}
+
+function guideCreateSession() {
+  if (!loggedGuide) return;
+  const name      = document.getElementById('guide-session-name').value.trim();
+  const date      = document.getElementById('guide-session-date').value;
+  const tourType  = document.getElementById('guide-session-tour').value;
+  const entryMode = 'single';
+  if (!name) { toast('⚠️ Inserisci il nome della sessione', 'warn'); return; }
+  const code = generateSessionCode(loggedGuide.name, name, date);
+  const guideLangs = ['it'];
+  ['en','fr','es'].forEach(l => {
+    if (document.getElementById(`guide-lang-${l}`)?.checked) guideLangs.push(l);
+  });
+  const guideDefaultLang = document.getElementById('guide-default-lang')?.value || 'it';
+
+  const session = {
+    id: Date.now(), name, date, code, photos: [], status: 'active',
+    guideName: loggedGuide.name, guidePhone: loggedGuide.phone || '',
+    tourType, entryMode, foodIncluded: 'no',
+    langs: guideLangs, defaultLang: guideDefaultLang
+  };
+  sessions.push(session);
+  // QR
+  document.getElementById('guide-qr-output').style.display = 'block';
+  document.getElementById('guide-session-code-display').textContent = code;
+  const qrContainer = document.getElementById('guide-qrcode');
+  qrContainer.innerHTML = '';
+  const _base = getBaseUrl();
+  const _qp = new URLSearchParams({ session: code });
+  if (loggedGuide.name)  _qp.set('guide', loggedGuide.name);
+  if (loggedGuide.phone) _qp.set('guidePhone', loggedGuide.phone);
+  if (tourType)          _qp.set('tour', tourType);
+  if (entryMode === 'group') _qp.set('entry', 'group');
+  const joinUrl = `${_base}?${_qp.toString()}`;
+  new QRCode(qrContainer, { text: joinUrl, width:180, height:180, colorDark:'#0f0e0d', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  renderGuideSessions();
+  toast(`✅ Sessione "${name}" creata! Codice: ${code}`);
+}
+
+function showGuideSessionQR(code) {
+  const session = sessions.find(s => s.code === code);
+  if (!session) return;
+  // Riusa la logica del QR admin
+  document.getElementById('guide-session-name').value = session.name;
+  document.getElementById('guide-session-date').value = session.date || '';
+  document.getElementById('guide-session-tour').value = session.tourType || '';
+  guideCreateSession();
+  sessions.pop(); // Evita duplicati — la sessione esiste già
+}
+
+function guideEnterSession() {
+  const code = document.getElementById('guide-session-code-display').textContent;
+  if (!code) { toast('⚠️ Crea prima una sessione', 'warn'); return; }
+  const session = sessions.find(s => s.code === code);
+  if (!session) { toast('⚠️ Sessione non trovata', 'warn'); return; }
+  // Entra come guida nella sessione
+  activeSession = session;
+  isAdmin = false;
+  isGuide = true;
+  currentUser = { name: loggedGuide?.name || session.guideName, color: '#8cc63f' };
+  memberCount = 1;
+  sessionLangs = session.langs?.length ? session.langs : ['it','en'];
+  currentLang = session.defaultLang || 'it';
+  document.getElementById('active-session-name').textContent = session.name;
+  document.getElementById('member-count-badge').textContent = `👥 ${memberCount}`;
+  document.getElementById('session-header-privileged').style.display = 'flex';
+  document.getElementById('session-header-client').style.display = 'none';
+  document.getElementById('guide-role-badge').style.display = 'flex';
+  document.getElementById('guide-role-name').textContent = currentUser.name;
+  document.getElementById('guide-favorites-section').style.display = 'block';
+  document.getElementById('blog-section')?.style && (document.getElementById('blog-section').style.display = 'none');
+  buildSummaryCard(session, currentUser.name, 1);
+  applyLang(currentLang);
+  showView('group');
+  toast(`🧭 Sei entrato come guida in "${session.name}"`);
+  if (window._fbReady) startFirebaseSync(session.code);
+  else document.addEventListener('firebase-ready', () => startFirebaseSync(session.code), { once: true });
+}
+
+function downloadGuideQR() {
+  if (!canvas) { toast('⚠️ Genera prima il QR', 'warn'); return; }
+  const a = document.createElement('a');
+  a.download = `qr-${document.getElementById('guide-session-code-display').textContent}.png`;
+  a.href = canvas.toDataURL();
+  a.click();
+}
+
+function copyGuideLink() {
+  const code = document.getElementById('guide-session-code-display').textContent;
+  if (!code) return;
+  const session = sessions.find(s => s.code === code);
+  const _lp = new URLSearchParams({ session: code });
+  if (session?.guideName)  _lp.set('guide', session.guideName);
+  if (session?.guidePhone) _lp.set('guidePhone', session.guidePhone);
+  if (session?.tourType)   _lp.set('tour', session.tourType);
+  if (session?.entryMode === 'group') _lp.set('entry', 'group');
+  const link = `${getBaseUrl()}?${_lp.toString()}`;
+  navigator.clipboard.writeText(link).then(() => toast('🔗 Link copiato!'));
+}
+
+function downloadSessionPhotos(sessionId) {
+  const session = sessions.find(s => String(s.id) === String(sessionId));
+  if (!session?.photos?.length) { toast('⚠️ Nessuna foto in questa sessione', 'warn'); return; }
+  const approved = session.photos.filter(p => p.approved !== false);
+  if (!approved.length) { toast('⚠️ Nessuna foto approvata da scaricare', 'warn'); return; }
+  approved.forEach((photo, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = photo.url;
+      a.download = `${session.name}-foto-${i+1}.jpg`;
+      a.click();
+    }, i * 400);
+  });
+  toast(`⬇️ Download di ${approved.length} foto avviato...`);
+}
+
+// ════════════════════════════════════
+// ════════════════════════════════════
+//  UPDATE CLIENT HEADER
+// ════════════════════════════════════
+function updateClientHeader(session, onlineCount) {
+  const guideBadge = document.getElementById('client-guide-badge');
+  if (session && (session.guideName || session.guidePhone)) {
+    document.getElementById('client-guide-name').textContent = session.guideName || '';
+    document.getElementById('client-guide-phone').textContent = session.guidePhone || '';
+    guideBadge.style.display = 'flex';
+  } else {
+    if (guideBadge) guideBadge.style.display = 'none';
+  }
+  const countEl = document.getElementById('client-online-count');
+  if (countEl) countEl.textContent = onlineCount || memberCount || 1;
+}
+
+// simulateOtherUploads rimossa — era solo demo, causava nomi casuali falsi
+
+// ════════════════════════════════════
+//  LIGHTBOX
+// ════════════════════════════════════
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox();
+});
+
+// ════════════════════════════════════
+//  MODALS
+// ════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showPrivacy() { openModal('modal-privacy'); }
+
+// Click fuori dal modal per chiudere
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════
+function toast(msg, type) {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  if (type === 'warn') el.style.background = '#8a5500';
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(60px)';
+    el.style.transition = 'all 0.3s ease';
+    setTimeout(() => el.remove(), 300);
+  }, 3200);
+}
+
+// ════════════════════════════════════
+//  URL PARAMS (per scansione QR)
+// ════════════════════════════════════
+window.addEventListener('load', () => {
+  const urlCode = new URLSearchParams(window.location.search).get('session');
+
+  try {
+    renderGuideSelect();
+    renderTourTypeSelect();
+    const m = loadManagerSettings();
+    const emailEl = document.getElementById('manager-email');
+    if (emailEl) emailEl.value = m.email || 'info@esbiketour.com';
+    applyManagerContact();
+    sessionLangs = ['it', 'en'];
+    currentLang = 'en';
+    updateLangSwitchers();
+    applyLang('en');
+    renderLoginGuideSelect();
+  } catch(err) {
+    console.error('INIT ERROR:', err);
+  }
+
+  // Routing — DOPO il try/catch, sempre eseguito
+  if (urlCode) {
+      showView('join');    try {
+      setNavForRole('client');
+      const codeField = document.getElementById('join-code');
+      if (codeField) {
+        codeField.value = urlCode.toUpperCase();
+        const codeRow = codeField.parentElement;
+        if (codeRow) codeRow.style.display = 'none';
+      }
+      const params = new URLSearchParams(window.location.search);
+      const urlGuide = params.get('guide') || '';
+      const urlPhone = params.get('guidePhone') || '';
+      const gb = document.getElementById('guide-info-block');
+      const gn = document.getElementById('guide-display-name');
+      const gp = document.getElementById('guide-display-phone');
+      if (urlGuide || urlPhone) {
+        if (gb) gb.style.display = 'block';
+        if (gn) gn.textContent = urlGuide || '—';
+        if (gp) gp.textContent = urlPhone || '';
+      }
+    } catch(e) {
+      console.error('QR error:', e);
+    }
+    toast('📱 Inserisci il tuo nome per entrare!');
+  } else {
+      showView('login');
+  }
+
+  const joinCodeEl = document.getElementById('join-code');
+  if (joinCodeEl) {
+    joinCodeEl.addEventListener('blur', () => {
+      const c = joinCodeEl.value.trim().toUpperCase();
+      const s = sessions.find(s => s.code === c);
+      if (s) { prefillJoinFromSession(s); toast(`🔍 Sessione trovata: ${s.name}`); }
+    });
+  }
+}); // fine window.addEventListener load
+</script>
+
+
+
+<div id="toast-container"></div>
+
+</body>
+</html>
